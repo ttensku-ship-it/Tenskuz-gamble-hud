@@ -414,6 +414,7 @@ public class HubScreen extends Screen {
 
         // fade the whole panel in / out
         if (fade < 1f) g.fill(px, py, px + W, py + H, ((int) (255 * (1f - fade)) << 24));
+        DancingSkin.renderTooltip(g, font, mouseX, mouseY, width);
         g.pose().popMatrix();
     }
 
