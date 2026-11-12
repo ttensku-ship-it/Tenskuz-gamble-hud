@@ -76,6 +76,7 @@ public class TenskuGambleHud implements ClientModInitializer {
                 double v = Money.parse(in.group(2));
                 if (v > 0) {
                     AuctionManager.onPayment(in.group(1), v);
+                    Config.I.record(in.group(1), v, true);
                     Config.I.rollDay();
                     Config.I.received += v;
                     if (Config.I.balance >= 0) Config.I.balance += v;
@@ -90,6 +91,7 @@ public class TenskuGambleHud implements ClientModInitializer {
             if (out.find()) {
                 double v = Money.parse(out.group(2));
                 if (v > 0) {
+                    Config.I.record(out.group(1), v, false);
                     Config.I.rollDay();
                     Config.I.sent += v;
                     if (Config.I.balance >= 0) Config.I.balance = Math.max(0, Config.I.balance - v);

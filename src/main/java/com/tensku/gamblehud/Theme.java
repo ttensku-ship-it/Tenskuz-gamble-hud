@@ -26,6 +26,23 @@ public record Theme(String name, int top, int bottom, int hill, int accent, int 
         new Theme("Gray",      0xFF22252B, 0xFF5A606E, 0xFF30343C, 0xFFB0B6C4, 0xB0B6C4),
         new Theme("Mint",      0xFF0B2B22, 0xFF6FD9B0, 0xFF2E8A6B, 0xFFA8FFDC, 0xA8FFDC),
         new Theme("Sunset",    0xFF2B0B33, 0xFFFF7A4D, 0xFF5A1F4A, 0xFFFFB06B, 0xFFB06B),
+        // nature + sky + galaxy
+        new Theme("Forest",    0xFF07200F, 0xFF1F6B2E, 0xFF0F3D1A, 0xFF7BE27F, 0x7BE27F),
+        new Theme("Ocean",     0xFF03203A, 0xFF1478B8, 0xFF0A4A78, 0xFF5CD0FF, 0x5CD0FF),
+        new Theme("Sunrise",   0xFF3A1A4A, 0xFFFF9E5E, 0xFFB5527A, 0xFFFFD08A, 0xFFD08A),
+        new Theme("Twilight",  0xFF14123A, 0xFF8A4F9E, 0xFF3A2466, 0xFFE59AD8, 0xE59AD8),
+        new Theme("Nebula",    0xFF12062E, 0xFF5A2A8F, 0xFF8A2A6E, 0xFFFF6FD8, 0xFF6FD8),
+        new Theme("Cosmic",    0xFF020410, 0xFF2A1A5E, 0xFF10082A, 0xFF7AF0FF, 0x7AF0FF),
+        new Theme("Meadow",    0xFF1B3A1A, 0xFF9ED860, 0xFF4F8A2E, 0xFFE8FF7A, 0xE8FF7A),
+        new Theme("Blossom",   0xFF3A1A2A, 0xFFF7B6CF, 0xFFC96A93, 0xFFFFD1E3, 0xFFD1E3),
+        new Theme("Storm",     0xFF14181F, 0xFF4A5566, 0xFF232A35, 0xFF9AB4D6, 0x9AB4D6),
+        new Theme("Autumn",    0xFF2A1006, 0xFFA83A14, 0xFF5A2208, 0xFFFF8A3D, 0xFF8A3D),
+        new Theme("Moonlight", 0xFF0A1226, 0xFF3A4E7A, 0xFF1A2646, 0xFFDDE6FF, 0xDDE6FF),
+        new Theme("Coral Reef",0xFF052B3A, 0xFFFF7A6B, 0xFF1A7A8A, 0xFFFFB3A6, 0xFFB3A6),
+        new Theme("Tundra",    0xFF1A2A3A, 0xFFCFE3F2, 0xFF8AA8BF, 0xFFFFFFFF, 0xFFFFFF),
+        new Theme("Rainforest",0xFF04260F, 0xFF0F8A4A, 0xFF083A22, 0xFF3DFFB0, 0x3DFFB0),
+        new Theme("Starry Night",0xFF050A24, 0xFF1F3A8A, 0xFF0A1440, 0xFFFFE066, 0xFFE066),
+        new Theme("Dusk",      0xFF1A0F2E, 0xFFD6603A, 0xFF3A1A4A, 0xFFFF9A6B, 0xFF9A6B),
     };
 
     public static Theme current() {

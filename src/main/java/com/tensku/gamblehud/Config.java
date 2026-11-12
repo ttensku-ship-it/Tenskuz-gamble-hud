@@ -17,6 +17,7 @@ public class Config {
     public boolean payConfirm = false;
     public boolean menuMusic = true;
     public boolean clickSounds = true;
+    public boolean menuAnim = true;
     public int theme = 3; // Desert
     public double alertThreshold = 1_000_000;
     public double payThreshold = 1_000_000;
@@ -39,6 +40,9 @@ public class Config {
     public int resultDisplaySeconds = 20;
     public String host = "";
     public java.util.List<String> favourites = new java.util.ArrayList<>();
+
+    // leaderboard ledger: player -> [paid you, you paid them]
+    public java.util.Map<String, double[]> ledger = new java.util.HashMap<>();
 
     public double balance = -1; // -1 = unknown (type /bal once)
     public double received = 0;
@@ -76,6 +80,27 @@ public class Config {
             sent = 0;
             save();
         }
+    }
+
+    /** Remember a payment for the leaderboards. paidMe = they paid you (you won), else you paid them (they won). */
+    public void record(String player, double amount, boolean paidMe) {
+        if (ledger == null) ledger = new java.util.HashMap<>();
+        double[] e = ledger.computeIfAbsent(player, k -> new double[2]);
+        e[paidMe ? 0 : 1] += amount;
+    }
+
+    /** Sorted leaderboard. winners=true: people who took the most from you. false: people who lost the most to you. */
+    public java.util.List<java.util.Map.Entry<String, Double>> board(boolean winners) {
+        java.util.List<java.util.Map.Entry<String, Double>> out = new java.util.ArrayList<>();
+        if (ledger == null) return out;
+        for (var e : ledger.entrySet()) {
+            double[] v = e.getValue();
+            if (v == null || v.length < 2) continue;
+            double net = winners ? v[1] - v[0] : v[0] - v[1];
+            if (net > 0) out.add(new java.util.AbstractMap.SimpleEntry<>(e.getKey(), net));
+        }
+        out.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
+        return out;
     }
 
     public void resetHud() {

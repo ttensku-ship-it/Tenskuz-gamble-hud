@@ -13,7 +13,7 @@ import java.util.List;
 
 public class HubScreen extends Screen {
     private static final int W = 400, H = 270;
-    private static final String[] TABS = {"Overview", "Auction", "Profit", "Pay Confirm", "Alerts", "Themes", "Background", "HUD"};
+    private static final String[] TABS = {"Overview", "Auction", "Profit", "Pay Confirm", "Alerts", "Themes", "Background", "HUD", "Leaderboard"};
 
     private record Hit(int x, int y, int w, int h, Runnable action) {}
 
@@ -23,6 +23,14 @@ public class HubScreen extends Screen {
     private EditBox payBox, alertBox, goalBox, winnerBox, resultBox, bgBox;
     private String status = "";
     private SoundInstance music;
+    private boolean boardWinners = true;
+    private int themePage = 0;
+
+    // open / close animation
+    private static final long OPEN_MS = 280, CLOSE_MS = 180;
+    private final long openedAt = System.currentTimeMillis();
+    private boolean closing = false;
+    private long closeAt = 0;
 
     public HubScreen() {
         super(Component.literal(TenskuGambleHud.TITLE));
@@ -56,9 +64,55 @@ public class HubScreen extends Screen {
         music = null;
     }
 
+    private boolean animating() {
+        if (!Config.I.menuAnim) return false;
+        return closing || System.currentTimeMillis() - openedAt < OPEN_MS;
+    }
+
+    /** 0 = hidden, 1 = fully open (clamped, used for fading). */
+    private float fade() {
+        if (!Config.I.menuAnim) return 1f;
+        long now = System.currentTimeMillis();
+        if (closing) {
+            float t = Math.min(1f, (now - closeAt) / (float) CLOSE_MS);
+            return 1f - t * t;
+        }
+        float t = Math.min(1f, (now - openedAt) / (float) OPEN_MS);
+        float inv = 1f - t;
+        return 1f - inv * inv * inv;
+    }
+
+    /** Panel scale: pops in with a little overshoot, shrinks away on close. */
+    private float popScale() {
+        if (!Config.I.menuAnim) return 1f;
+        long now = System.currentTimeMillis();
+        float v;
+        if (closing) {
+            v = fade();
+        } else {
+            float t = Math.min(1f, (now - openedAt) / (float) OPEN_MS);
+            float c1 = 1.70158f, c3 = c1 + 1f, p = t - 1f;
+            v = 1f + c3 * p * p * p + c1 * p * p; // ease out back
+        }
+        return 0.78f + 0.22f * v;
+    }
+
+    @Override
+    public void onClose() {
+        if (Config.I.menuAnim) {
+            if (!closing) { closing = true; closeAt = System.currentTimeMillis(); }
+            return; // the real close happens in tick() once the animation ends
+        }
+        super.onClose();
+    }
+
     @Override
     public void tick() {
         super.tick();
+        if (closing && System.currentTimeMillis() - closeAt >= CLOSE_MS) {
+            super.onClose();
+            return;
+        }
         // loop the song while the menu is open
         if (Config.I.menuMusic && music != null && !minecraft.getSoundManager().isActive(music)) {
             music = SimpleSoundInstance.forMusic(TenskuGambleHud.MENU_MUSIC);
@@ -128,7 +182,15 @@ public class HubScreen extends Screen {
         Theme th = Theme.current();
         updateBoxes();
 
-        g.fill(0, 0, width, height, 0x99000000);
+        float fade = fade();
+        g.fill(0, 0, width, height, ((int) (0x99 * fade) << 24));
+
+        float cxm = px + W / 2f, cym = py + H / 2f, sc = popScale();
+        g.pose().pushMatrix();
+        g.pose().translate(cxm, cym + (1f - fade) * 14f);
+        g.pose().scale(sc, sc);
+        g.pose().translate(-cxm, -cym);
+
         Ui.panel(g, th, px, py, W, H);
         g.fill(px + 2, py + 2, px + W - 2, py + 28, 0xAA0E0F16);
 
@@ -161,9 +223,10 @@ public class HubScreen extends Screen {
                 toggle(g, th, "Pay Confirm", c.payConfirm, y0 + 66, () -> { c.payConfirm = !c.payConfirm; Config.save(); });
                 toggle(g, th, "Menu Music", c.menuMusic, y0 + 88, () -> { c.menuMusic = !c.menuMusic; Config.save(); if (c.menuMusic) startMusic(); else stopMusic(); });
                 toggle(g, th, "Click Sounds", c.clickSounds, y0 + 110, () -> { c.clickSounds = !c.clickSounds; Config.save(); });
-                button(g, th, "Open Auction", px + 124, y0 + 136, 82, 20, () -> minecraft.gui.setScreen(new AuctionScreen()));
-                button(g, th, "Test Animation", px + 210, y0 + 136, 82, 20, () -> PaymentAnimation.trigger(5_000_000, "Tensku"));
-                button(g, th, "Edit HUD (move / resize)", px + 124, y0 + 160, 168, 20, () -> minecraft.gui.setScreen(new HudEditScreen()));
+                toggle(g, th, "Menu Animation", c.menuAnim, y0 + 132, () -> { c.menuAnim = !c.menuAnim; Config.save(); });
+                button(g, th, "Open Auction", px + 124, y0 + 158, 82, 20, () -> minecraft.gui.setScreen(new AuctionScreen()));
+                button(g, th, "Test Animation", px + 210, y0 + 158, 82, 20, () -> PaymentAnimation.trigger(5_000_000, "Tensku"));
+                button(g, th, "Edit HUD (move / resize)", px + 124, y0 + 182, 168, 20, () -> minecraft.gui.setScreen(new HudEditScreen()));
             }
             case 1 -> {
                 label(g, th, "AUCTION", y0 - 12);
@@ -222,18 +285,27 @@ public class HubScreen extends Screen {
             }
             case 5 -> {
                 label(g, th, "GUI THEMES", y0 - 12);
-                // two columns so every theme fits
-                for (int i = 0; i < Theme.ALL.length; i++) {
-                    final int idx = i;
-                    Theme t = Theme.ALL[i];
-                    int col = i / 11, row = i % 11;
+                // two columns, several pages
+                final int perPage = 18;
+                int pages = (Theme.ALL.length + perPage - 1) / perPage;
+                themePage = Math.max(0, Math.min(pages - 1, themePage));
+                int start = themePage * perPage;
+                for (int n = 0; n < perPage && start + n < Theme.ALL.length; n++) {
+                    final int idx = start + n;
+                    Theme t = Theme.ALL[idx];
+                    int col = n / 9, row = n % 9;
                     int rx = px + 124 + col * 86, ry = y0 + row * 18;
-                    boolean sel = c.theme == i;
+                    boolean sel = c.theme == idx;
                     g.fill(rx, ry, rx + 82, ry + 16, sel ? t.accent() : 0xCC151824);
                     g.fillGradient(rx + 3, ry + 3, rx + 19, ry + 13, t.top(), t.bottom());
-                    g.text(font, t.name(), rx + 24, ry + 4, sel ? 0xFF10121A : 0xFFE8E8E8, !sel);
+                    g.text(font, Ui.fit(font, t.name(), 56), rx + 24, ry + 4, sel ? 0xFF10121A : 0xFFE8E8E8, !sel);
                     hits.add(new Hit(rx, ry, 82, 16, () -> { c.theme = idx; Config.save(); status = "Selected " + t.name() + "."; }));
                 }
+                final int pageCount = pages;
+                button(g, th, "<", px + 124, y0 + 168, 24, 16, () -> themePage = (themePage + pageCount - 1) % pageCount);
+                button(g, th, ">", px + 268, y0 + 168, 24, 16, () -> themePage = (themePage + 1) % pageCount);
+                String pg = "Page " + (themePage + 1) + "/" + pages;
+                g.text(font, pg, px + 208 - font.width(pg) / 2, y0 + 172, 0xFFE8E8E8, true);
             }
             case 6 -> {
                 label(g, th, "BACKGROUND", y0 - 12);
@@ -267,6 +339,53 @@ public class HubScreen extends Screen {
                 g.text(font, "In the editor click a card to pick", px + 124, y0 + 106, 0xFFB9BDCB, true);
                 g.text(font, "it up, click again to drop it.", px + 124, y0 + 118, 0xFFB9BDCB, true);
             }
+            case 8 -> {
+                label(g, th, "LEADERBOARD", y0 - 12);
+                button(g, th, "Top Winners", px + 124, y0, 82, 18, () -> boardWinners = true);
+                button(g, th, "Top Losers", px + 210, y0, 82, 18, () -> boardWinners = false);
+                g.fill(boardWinners ? px + 124 : px + 210, y0 + 16, (boardWinners ? px + 124 : px + 210) + 82, y0 + 18, 0xFFFFFFFF);
+                var rows = c.board(boardWinners);
+                if (rows.isEmpty()) {
+                    g.text(font, "No data yet.", px + 124, y0 + 34, 0xFFB9BDCB, true);
+                    g.text(font, "Counts /pay money from now on:", px + 124, y0 + 50, 0xFFB9BDCB, true);
+                    g.text(font, boardWinners ? "who took the most from you." : "who lost the most to you.", px + 124, y0 + 62, 0xFFB9BDCB, true);
+                } else {
+                    // podium: 2nd | 1st | 3rd
+                    int[] order = {1, 0, 2};
+                    int[] heights = {34, 44, 26};
+                    int[] medal = {0xFFC0C8D4, 0xFFFFD24D, 0xFFCD7F32};
+                    int base = y0 + 84;
+                    for (int k = 0; k < 3; k++) {
+                        int rank = order[k];
+                        int bx = px + 124 + k * 57, bw = 54, top = base - heights[k];
+                        if (rank < rows.size()) {
+                            var r = rows.get(rank);
+                            String nm = Ui.fit(font, r.getKey(), bw);
+                            String am = Ui.fit(font, Money.format(r.getValue()), bw);
+                            g.text(font, nm, bx + (bw - font.width(nm)) / 2, top - 20, 0xFFFFFFFF, true);
+                            g.text(font, am, bx + (bw - font.width(am)) / 2, top - 10, boardWinners ? 0xFF7CFF9B : 0xFFFF6B6B, true);
+                        }
+                        g.fill(bx, top, bx + bw, base, rank < rows.size() ? medal[rank] : 0x66151824);
+                        String num = String.valueOf(rank + 1);
+                        g.text(font, num, bx + (bw - font.width(num)) / 2, top + 6, 0xFF10121A, false);
+                    }
+                    // ranks 4-10 as a chart
+                    for (int i = 3; i < 10; i++) {
+                        int ry = y0 + 90 + (i - 3) * 12;
+                        g.fill(px + 124, ry, px + 292, ry + 11, (i % 2 == 0) ? 0xAA151824 : 0x88101420);
+                        if (i < rows.size()) {
+                            var r = rows.get(i);
+                            g.text(font, (i + 1) + ".", px + 128, ry + 2, th.accent(), true);
+                            g.text(font, Ui.fit(font, r.getKey(), 90), px + 144, ry + 2, 0xFFE8E8E8, true);
+                            String am = Money.format(r.getValue());
+                            g.text(font, am, px + 288 - font.width(am), ry + 2, boardWinners ? 0xFF7CFF9B : 0xFFFF6B6B, true);
+                        } else {
+                            g.text(font, (i + 1) + ".", px + 128, ry + 2, 0xFF6A708A, true);
+                        }
+                    }
+                }
+                button(g, th, "Reset Leaderboard", px + 124, y0 + 178, 168, 16, () -> { c.ledger.clear(); Config.save(); status = "Leaderboard reset"; });
+            }
             default -> { }
         }
 
@@ -292,6 +411,10 @@ public class HubScreen extends Screen {
         statusLine(g, "Pay guard", c.payConfirm, sx + 6, py + 179);
 
         super.extractRenderState(g, mouseX, mouseY, partialTick);
+
+        // fade the whole panel in / out
+        if (fade < 1f) g.fill(px, py, px + W, py + H, ((int) (255 * (1f - fade)) << 24));
+        g.pose().popMatrix();
     }
 
     private void statusLine(GuiGraphicsExtractor g, String name, boolean on, int x, int y) {
@@ -302,6 +425,7 @@ public class HubScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (animating()) return true;
         double mx = event.x(), my = event.y();
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit h = hits.get(i);
