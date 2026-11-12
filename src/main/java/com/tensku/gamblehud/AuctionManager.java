@@ -27,12 +27,23 @@ public final class AuctionManager {
     public static long totalMs = 1;
     public static final List<String> log = new ArrayList<>();
 
+    public static String itemImage = "";
+    public static int bids = 0;
+    public static long lastBidAt = 0;
+
     public static Result result = null;
     public static long bannerUntil = 0;
     public static long resultUntil = 0;
 
     public static void start(String name, int seconds, double minBid) {
+        start(name, seconds, minBid, "");
+    }
+
+    public static void start(String name, int seconds, double minBid, String image) {
         item = name.isBlank() ? "Auction item" : name.trim();
+        itemImage = image == null ? "" : image.trim();
+        bids = 0;
+        lastBidAt = 0;
         startBid = Math.max(0, minBid);
         topBid = 0;
         topBidder = "";
@@ -95,8 +106,105 @@ public final class AuctionManager {
         if (amount <= 0 || amount < startBid || amount <= topBid) return;
         topBid = amount;
         topBidder = who;
+        bids++;
+        lastBidAt = System.currentTimeMillis();
         log.add(0, who + "  " + Money.format(amount));
         while (log.size() > 8) log.remove(log.size() - 1);
+    }
+
+    private static void icon(GuiGraphicsExtractor g, Theme th, Minecraft mc, String name, String img, int x, int y, int size) {
+        g.fill(x - 1, y - 1, x + size + 1, y + size + 1, th.accent());
+        g.fill(x, y, x + size, y + size, 0xFF0B0C12);
+        CustomImage.Tex t = CustomImage.auctionIcon(name, img);
+        if (t != null) {
+            CustomImage.fit(g, t, x + 2, y + 2, size - 4);
+        } else {
+            String ch = name.isBlank() ? "?" : name.substring(0, 1).toUpperCase();
+            g.text(mc.font, ch, x + (size - mc.font.width(ch)) / 2, y + (size - 8) / 2, th.accent(), true);
+        }
+    }
+
+    /**
+     * The live auction card, drawn with its top-left corner at (0, 0) of the current pose.
+     * Size is Hud.AUC_W x Hud.AUC_H. Also used by the HUD editor with sample values.
+     */
+    public static void drawCard(GuiGraphicsExtractor g, Minecraft mc, Theme th, String name, String img,
+                                long left, long total, String topLine, boolean hasBid, String host,
+                                int bidCount, long lastBid, long now) {
+        final int w = Hud.AUC_W, h = Hud.AUC_H;
+        boolean urgent = left <= 10_000;
+        boolean warn = left <= 30_000;
+        float pulse = (float) (0.5 + 0.5 * Math.sin(now / 130.0));
+        int border = urgent ? Theme.alpha(0xFF5A5A, 0.55f + 0.45f * pulse) : th.accent();
+
+        g.fill(-1, -1, w + 1, h + 1, border);
+        Ui.backdrop(g, th, 0, 0, w, h);
+
+        // header
+        g.fill(0, 0, w, 14, 0xAA0B0C12);
+        g.fill(0, 14, w, 15, Theme.alpha(border, 0.6f));
+        g.fill(6, 5, 10, 9, Theme.alpha(0xFF4D4D, 0.45f + 0.55f * pulse));
+        g.text(mc.font, "LIVE AUCTION", 14, 3, th.accent(), true);
+        String right = bidCount + (bidCount == 1 ? " bid" : " bids");
+        g.text(mc.font, right, w - 5 - mc.font.width(right), 3, 0xFFB9BDCB, true);
+
+        // item picture
+        icon(g, th, mc, name, img, 6, 21, 36);
+
+        // item name + big timer
+        g.text(mc.font, Ui.fit(mc.font, name, w - 53), 48, 20, 0xFFFFFFFF, true);
+        int tc = urgent ? ((now / 400) % 2 == 0 ? 0xFFFF6B6B : 0xFFFFFFFF) : (warn ? 0xFFFFD166 : 0xFFFFFFFF);
+        g.pose().pushMatrix();
+        g.pose().translate(48f, 30f);
+        g.pose().scale(2f, 2f);
+        g.text(mc.font, Ui.time(left), 0, 0, tc, true);
+        g.pose().popMatrix();
+
+        // top bid row (flashes gold on a new bid)
+        long since = now - lastBid;
+        boolean fresh = hasBid && lastBid > 0 && since >= 0 && since < 900;
+        if (fresh) {
+            float a = 1f - since / 900f;
+            g.fill(46, 47, w - 3, 58, Theme.alpha(0xF2C94C, a * 0.35f));
+        }
+        g.text(mc.font, Ui.fit(mc.font, topLine, w - 53), 48, 49, hasBid ? 0xFF7CFF9B : 0xFFB9BDCB, true);
+        if (fresh) {
+            g.text(mc.font, "NEW BID!", 48, 60, Theme.alpha(0xF2C94C, 0.6f + 0.4f * pulse), true);
+        } else if (host != null && !host.isEmpty()) {
+            g.text(mc.font, Ui.fit(mc.font, "Host: " + host, w - 53), 48, 60, 0xFFB9BDCB, true);
+        }
+
+        // progress bar with ticks and a moving shine
+        int bx1 = 5, bx2 = w - 5, by1 = h - 8, by2 = h - 4;
+        float frac = Math.max(0f, Math.min(1f, left / (float) Math.max(1L, total)));
+        int fw = (int) ((bx2 - bx1) * frac);
+        int bc = urgent ? 0xFFFF5A5A : (warn ? 0xFFFFD166 : th.accent());
+        g.fill(bx1, by1, bx2, by2, 0xAA000000);
+        g.fill(bx1, by1, bx1 + fw, by2, bc);
+        g.fill(bx1, by1, bx1 + fw, by1 + 1, Theme.alpha(0xFFFFFF, 0.35f));
+        if (fw > 8) {
+            int sp = (int) ((now / 14) % (fw + 24)) - 8;
+            int sx1 = bx1 + Math.max(0, sp), sx2 = bx1 + Math.min(fw, sp + 6);
+            if (sx2 > sx1) g.fill(sx1, by1, sx2, by2, Theme.alpha(0xFFFFFF, 0.3f));
+        }
+        for (int i = 1; i < 10; i++) {
+            int tx = bx1 + (bx2 - bx1) * i / 10;
+            g.fill(tx, by1, tx + 1, by2, 0x55000000);
+        }
+    }
+
+    /** Result card, drawn with its top-left corner at (0, 0) of the current pose. */
+    private static void drawResult(GuiGraphicsExtractor g, Minecraft mc, Theme th) {
+        final int w = Hud.AUC_W, h = 48;
+        int border = result.winner() != null ? 0xFFF2C94C : th.accent();
+        g.fill(-1, -1, w + 1, h + 1, border);
+        Ui.backdrop(g, th, 0, 0, w, h);
+        g.fill(0, 0, w, 14, 0xAA0B0C12);
+        g.text(mc.font, "AUCTION RESULT", 6, 3, th.accent(), true);
+        icon(g, th, mc, result.item(), itemImage, 6, 18, 26);
+        g.text(mc.font, Ui.fit(mc.font, result.item(), w - 46), 38, 20, 0xFFFFFFFF, true);
+        String line = result.winner() == null ? "No bids" : result.winner() + " - " + Money.format(result.amount());
+        g.text(mc.font, Ui.fit(mc.font, line, w - 46), 38, 32, result.winner() == null ? 0xFFB9BDCB : 0xFF7CFF9B, true);
     }
 
     public static void render(GuiGraphicsExtractor g, Minecraft mc, int sw, int sh) {
@@ -104,41 +212,31 @@ public final class AuctionManager {
         long now = System.currentTimeMillis();
         if (active && now >= endAt) finish();
         Theme th = Theme.current();
-        int w = 134, x = sw - w - 6, y = 6;
 
-        if (active) {
-            long left = Math.max(0, endAt - now);
-            int h = 54;
-            g.fill(x - 1, y - 1, x + w + 1, y + h + 1, th.accent());
-            g.fillGradient(x, y, x + w, y + h, th.top(), th.bottom());
-            g.text(mc.font, "AUCTION", x + 5, y + 4, th.accent(), true);
-            String tm = Ui.time(left);
-            boolean urgent = left <= 10_000;
-            int tc = urgent && (now / 400) % 2 == 0 ? 0xFFFF6B6B : 0xFFFFFFFF;
-            g.text(mc.font, tm, x + w - 5 - mc.font.width(tm), y + 4, tc, true);
-            g.text(mc.font, Ui.fit(mc.font, item, w - 10), x + 5, y + 16, 0xFFFFFFFF, true);
-            String top = topBidder.isEmpty()
-                ? "No bids - from " + Money.format(startBid)
-                : Money.format(topBid) + " - " + topBidder;
-            g.text(mc.font, Ui.fit(mc.font, top, w - 10), x + 5, y + 28, 0xFF7CFF9B, true);
-            if (!Config.I.host.isEmpty()) {
-                g.text(mc.font, Ui.fit(mc.font, "Host: " + Config.I.host, w - 10), x + 5, y + 39, 0xFFB9BDCB, true);
+        boolean showResult = result != null && Config.I.resultDisplaySeconds > 0 && now < resultUntil;
+        if (active || showResult) {
+            int[] r = Hud.auctionRect(sw, sh);
+            float s = Hud.clamp(Config.I.auctionScale);
+            g.pose().pushMatrix();
+            g.pose().translate((float) r[0], (float) r[1]);
+            g.pose().scale(s, s);
+            int yOff = 0;
+            if (active) {
+                long left = Math.max(0, endAt - now);
+                String top = topBidder.isEmpty()
+                    ? "No bids - from " + Money.format(startBid)
+                    : Money.format(topBid) + " - " + topBidder;
+                drawCard(g, mc, th, item, itemImage, left, totalMs, top, !topBidder.isEmpty(),
+                         Config.I.host, bids, lastBidAt, now);
+                yOff = Hud.AUC_H + 6;
             }
-            float frac = Math.max(0f, Math.min(1f, left / (float) totalMs));
-            g.fill(x + 5, y + h - 5, x + w - 5, y + h - 2, 0x99000000);
-            g.fill(x + 5, y + h - 5, x + 5 + (int) ((w - 10) * frac), y + h - 2, th.accent());
-            y += h + 4;
-        }
-
-        if (result != null && Config.I.resultDisplaySeconds > 0 && now < resultUntil) {
-            int h = 42;
-            g.fill(x - 1, y - 1, x + w + 1, y + h + 1, th.accent());
-            g.fillGradient(x, y, x + w, y + h, th.top(), th.bottom());
-            g.text(mc.font, "AUCTION RESULT", x + 5, y + 4, th.accent(), true);
-            g.text(mc.font, Ui.fit(mc.font, result.item(), w - 10), x + 5, y + 16, 0xFFFFFFFF, true);
-            String line = result.winner() == null ? "No bids"
-                : result.winner() + " - " + Money.format(result.amount());
-            g.text(mc.font, Ui.fit(mc.font, line, w - 10), x + 5, y + 28, result.winner() == null ? 0xFFB9BDCB : 0xFF7CFF9B, true);
+            if (showResult) {
+                g.pose().pushMatrix();
+                g.pose().translate(0f, (float) yOff);
+                drawResult(g, mc, th);
+                g.pose().popMatrix();
+            }
+            g.pose().popMatrix();
         }
 
         if (result != null && result.winner() != null && now < bannerUntil) {

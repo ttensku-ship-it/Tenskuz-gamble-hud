@@ -2,17 +2,33 @@ package com.tensku.gamblehud;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
-/** Shared panel drawing (gradient, hills, drifting particles). */
+/** Shared panel drawing (background, hills, drifting particles). */
 public final class Ui {
     private Ui() {}
+
+    /** Card/panel background: the custom image if enabled and loaded, else the theme gradient. True if an image was drawn. */
+    public static boolean backdrop(GuiGraphicsExtractor g, Theme th, int x1, int y1, int x2, int y2) {
+        if (Config.I.bgEnabled) {
+            CustomImage.Tex t = CustomImage.get(Config.I.bgImage);
+            if (t != null) {
+                CustomImage.cover(g, t, x1, y1, x2 - x1, y2 - y1);
+                g.fill(x1, y1, x2, y2, Theme.alpha(0x000000, Config.I.bgDim / 100f));
+                return true;
+            }
+        }
+        g.fillGradient(x1, y1, x2, y2, th.top(), th.bottom());
+        return false;
+    }
 
     public static void panel(GuiGraphicsExtractor g, Theme th, int px, int py, int w, int h) {
         g.fill(px, py, px + w, py + h, 0xFF0E0F16);
         int x1 = px + 2, y1 = py + 2, x2 = px + w - 2, y2 = py + h - 2;
-        g.fillGradient(x1, y1, x2, y2, th.top(), th.bottom());
-        for (int x = x1; x < x2; x += 2) {
-            int hh = (int) (22 + 12 * Math.sin(x * 0.03) + 6 * Math.sin(x * 0.08));
-            g.fill(x, y2 - hh, x + 2, y2, th.hill());
+        boolean img = backdrop(g, th, x1, y1, x2, y2);
+        if (!img) {
+            for (int x = x1; x < x2; x += 2) {
+                int hh = (int) (22 + 12 * Math.sin(x * 0.03) + 6 * Math.sin(x * 0.08));
+                g.fill(x, y2 - hh, x + 2, y2, th.hill());
+            }
         }
         long t = System.currentTimeMillis();
         for (int i = 0; i < 36; i++) {

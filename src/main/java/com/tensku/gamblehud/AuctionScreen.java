@@ -7,9 +7,9 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 public class AuctionScreen extends Screen {
-    private static final int W = 320, H = 226;
+    private static final int W = 320, H = 262;
     private int px, py;
-    private EditBox itemBox, durBox, bidBox, hostBox;
+    private EditBox itemBox, durBox, bidBox, hostBox, imgBox;
     private String status = "";
 
     public AuctionScreen() {
@@ -37,20 +37,21 @@ public class AuctionScreen extends Screen {
         durBox = box(x, py + 78, 150, "60", 5);
         bidBox = box(x, py + 112, 150, Money.format(AuctionManager.startBid).replace("$", ""), 16);
         hostBox = box(x, py + 146, 150, Config.I.host, 16);
+        imgBox = box(x, py + 180, 150, AuctionManager.itemImage, 60);
 
-        btn("Start", x, py + 172, 74, () -> {
+        btn("Start", x, py + 206, 74, () -> {
             double minBid = bidBox.getValue().isBlank() ? 0 : Money.parse(bidBox.getValue());
             int secs;
             try { secs = Integer.parseInt(durBox.getValue().trim()); } catch (NumberFormatException e) { secs = -1; }
             if (minBid < 0 || secs < 5) { status = "Check seconds (5+) and bid"; return; }
             Config.I.host = hostBox.getValue().trim();
             Config.save();
-            AuctionManager.start(itemBox.getValue(), Math.min(secs, 3600), minBid);
+            AuctionManager.start(itemBox.getValue(), Math.min(secs, 3600), minBid, imgBox.getValue());
             status = "Auction started";
         });
-        btn("End Now", x + 78, py + 172, 72, () -> { AuctionManager.endNow(); status = "Ended"; });
-        btn("Cancel", x, py + 196, 74, () -> { AuctionManager.cancel(); status = "Cancelled"; });
-        btn("Back", x + 78, py + 196, 72, () -> minecraft.gui.setScreen(new HubScreen()));
+        btn("End Now", x + 78, py + 206, 72, () -> { AuctionManager.endNow(); status = "Ended"; });
+        btn("Cancel", x, py + 230, 74, () -> { AuctionManager.cancel(); status = "Cancelled"; });
+        btn("Back", x + 78, py + 230, 72, () -> minecraft.gui.setScreen(new HubScreen()));
     }
 
     @Override
@@ -67,6 +68,7 @@ public class AuctionScreen extends Screen {
         g.text(font, "DURATION (SECONDS)", x, py + 67, lc, true);
         g.text(font, "STARTING BID", x, py + 101, lc, true);
         g.text(font, "HOST (ignored as bidder)", x, py + 135, lc, true);
+        g.text(font, "ITEM PICTURE (optional PNG name)", x, py + 169, lc, true);
 
         int rx = px + 172, rw = 136;
         g.fill(rx, py + 33, rx + rw, py + 118, 0xCC10121A);
@@ -82,8 +84,8 @@ public class AuctionScreen extends Screen {
             g.text(font, "IDLE", rx + 6, py + 50, 0xFFFF6B6B, true);
             g.text(font, Config.I.auctionEnabled ? "Auction HUD: ON" : "Auction HUD: OFF", rx + 6, py + 62, 0xFFB9BDCB, true);
         }
-        g.text(font, "Bids are chat lines like", rx + 6, py + 90, 0xFF9AA0B5, true);
-        g.text(font, "<name> 5M  or  name: 5M", rx + 6, py + 102, 0xFF9AA0B5, true);
+        g.text(font, "Chat bid: <n> 5M", rx + 6, py + 90, 0xFF9AA0B5, true);
+        g.text(font, "or pay you the bid", rx + 6, py + 102, 0xFF9AA0B5, true);
 
         g.fill(rx, py + 124, rx + rw, py + 196, 0xCC10121A);
         g.text(font, "RECENT BIDS", rx + 6, py + 129, th.accent(), true);
@@ -92,6 +94,7 @@ public class AuctionScreen extends Screen {
         }
 
         if (!status.isEmpty()) g.text(font, status, rx + 6, py + 202, 0xFF9DFFB0, true);
+        g.text(font, "Empty = item icon", rx + 6, py + 214, 0xFF9AA0B5, true);
         g.text(font, "ESC - close", px + 14, py + H - 12, 0xFF9AA0B5, true);
         String credit = TenskuGambleHud.CREDIT;
         g.text(font, credit, px + W - 14 - font.width(credit), py + H - 12, 0xFF9AA0B5, true);

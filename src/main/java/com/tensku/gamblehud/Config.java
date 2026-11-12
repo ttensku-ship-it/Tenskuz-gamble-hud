@@ -21,6 +21,18 @@ public class Config {
     public double payThreshold = 1_000_000;
     public double dailyGoal = 0;
 
+    // HUD layout: position as a 0..1 fraction of the free screen space (-1 = default spot), plus size
+    public float profitX = -1, profitY = -1, auctionX = -1, auctionY = -1;
+    public float profitScale = 1f, auctionScale = 1f;
+
+    // custom background (PNG in config/tenskugamblehud/)
+    public boolean bgEnabled = false;
+    public String bgImage = "";
+    public int bgDim = 35;
+
+    // big-payment animation style: 0 = auto by amount, 1..4 = fixed
+    public int animStyle = 0;
+
     public boolean auctionEnabled = false;
     public int winnerBannerSeconds = 5;
     public int resultDisplaySeconds = 20;
@@ -63,6 +75,12 @@ public class Config {
             sent = 0;
             save();
         }
+    }
+
+    public void resetHud() {
+        profitX = profitY = auctionX = auctionY = -1;
+        profitScale = auctionScale = 1f;
+        save();
     }
 
     public double net() {

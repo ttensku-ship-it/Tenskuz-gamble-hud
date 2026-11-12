@@ -10,15 +10,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class HubScreen extends Screen {
-    private static final int W = 400, H = 240;
-    private static final String[] TABS = {"Overview", "Auction", "Profit", "Pay Confirm", "Alerts", "Chat", "Themes"};
+    private static final int W = 400, H = 270;
+    private static final String[] TABS = {"Overview", "Auction", "Profit", "Pay Confirm", "Alerts", "Chat", "Themes", "Background", "HUD"};
 
     private record Hit(int x, int y, int w, int h, Runnable action) {}
 
     private final List<Hit> hits = new ArrayList<>();
     private int tab = 0;
     private int px, py;
-    private EditBox payBox, alertBox, goalBox, winnerBox, resultBox;
+    private EditBox payBox, alertBox, goalBox, winnerBox, resultBox, bgBox;
     private String status = "";
 
     public HubScreen() {
@@ -36,6 +36,8 @@ public class HubScreen extends Screen {
         alertBox = box(cx, y0 + 70, Money.format(Config.I.alertThreshold).replace("$", ""));
         winnerBox = box(cx, y0 + 78, String.valueOf(Config.I.winnerBannerSeconds));
         resultBox = box(cx, y0 + 116, String.valueOf(Config.I.resultDisplaySeconds));
+        bgBox = box(cx, y0 + 42, Config.I.bgImage);
+        bgBox.setMaxLength(60);
         updateBoxes();
     }
 
@@ -53,6 +55,7 @@ public class HubScreen extends Screen {
         alertBox.setVisible(tab == 4);
         winnerBox.setVisible(tab == 1);
         resultBox.setVisible(tab == 1);
+        bgBox.setVisible(tab == 7);
     }
 
     // ---------- drawing helpers ----------
@@ -106,7 +109,7 @@ public class HubScreen extends Screen {
         // tabs
         for (int i = 0; i < TABS.length; i++) {
             final int idx = i;
-            int ty = py + 36 + i * 26;
+            int ty = py + 36 + i * 24;
             boolean sel = i == tab;
             g.fill(px + 12, ty, px + 112, ty + 22, sel ? th.accent() : 0xCC151824);
             g.text(font, TABS[i], px + 20, ty + 7, sel ? 0xFF10121A : 0xFFE8E8E8, !sel);
@@ -125,6 +128,7 @@ public class HubScreen extends Screen {
                 toggle(g, th, "Chat Color", c.chatColor, y0 + 88, () -> { c.chatColor = !c.chatColor; Config.save(); });
                 button(g, th, "Open Auction", px + 124, y0 + 114, 82, 20, () -> minecraft.gui.setScreen(new AuctionScreen()));
                 button(g, th, "Test Animation", px + 210, y0 + 114, 82, 20, () -> PaymentAnimation.trigger(5_000_000, "Tensku"));
+                button(g, th, "Edit HUD (move / resize)", px + 124, y0 + 138, 168, 20, () -> minecraft.gui.setScreen(new HudEditScreen()));
             }
             case 1 -> {
                 label(g, th, "AUCTION", y0 - 12);
@@ -173,7 +177,13 @@ public class HubScreen extends Screen {
                     double v = Money.parse(alertBox.getValue());
                     if (v >= 0) { c.alertThreshold = v; Config.save(); status = "Saved"; } else status = "Invalid amount";
                 });
-                button(g, th, "Test Animation", px + 124, y0 + 98, 168, 20, () -> PaymentAnimation.trigger(Math.max(c.alertThreshold, 5_000_000), "Tensku"));
+                button(g, th, "Style: " + PaymentAnimation.STYLE_NAMES[Math.max(0, Math.min(4, c.animStyle))], px + 124, y0 + 96, 168, 20,
+                    () -> { c.animStyle = (c.animStyle + 1) % 5; Config.save(); });
+                label(g, th, "PREVIEW (closes this menu)", y0 + 122);
+                button(g, th, "Big $5M", px + 124, y0 + 134, 82, 18, () -> { minecraft.gui.setScreen(null); PaymentAnimation.preview(5_000_000, 1); });
+                button(g, th, "Huge $150M", px + 210, y0 + 134, 82, 18, () -> { minecraft.gui.setScreen(null); PaymentAnimation.preview(150_000_000, 2); });
+                button(g, th, "Jackpot $1.5B", px + 124, y0 + 154, 82, 18, () -> { minecraft.gui.setScreen(null); PaymentAnimation.preview(1_500_000_000, 3); });
+                button(g, th, "Legend $20B", px + 210, y0 + 154, 82, 18, () -> { minecraft.gui.setScreen(null); PaymentAnimation.preview(20_000_000_000.0, 4); });
             }
             case 5 -> {
                 label(g, th, "CHAT", y0 - 12);
@@ -195,6 +205,38 @@ public class HubScreen extends Screen {
                     g.text(font, t.name(), px + 154, ry + 5, sel ? 0xFF10121A : 0xFFE8E8E8, !sel);
                     hits.add(new Hit(px + 124, ry, 168, 18, () -> { c.theme = idx; Config.save(); status = "Selected " + t.name() + "."; }));
                 }
+            }
+            case 7 -> {
+                label(g, th, "BACKGROUND", y0 - 12);
+                toggle(g, th, "Custom Background", c.bgEnabled, y0, () -> { c.bgEnabled = !c.bgEnabled; Config.save(); });
+                label(g, th, "PNG FILE NAME", y0 + 30);
+                button(g, th, "Load", px + 124 + 116, y0 + 42, 52, 18, () -> {
+                    String name = bgBox.getValue().trim();
+                    if (name.isEmpty()) { status = "Type a PNG file name first"; return; }
+                    CustomImage.reload(name);
+                    c.bgImage = name;
+                    c.bgEnabled = true;
+                    Config.save();
+                    status = CustomImage.get(name) != null ? "Loaded " + name : "Failed: " + CustomImage.lastError;
+                });
+                g.text(font, "Darken: " + c.bgDim + "%", px + 124 + 30, y0 + 72, 0xFFE8E8E8, true);
+                button(g, th, "-", px + 124, y0 + 66, 24, 20, () -> { c.bgDim = Math.max(0, c.bgDim - 5); Config.save(); });
+                button(g, th, "+", px + 124 + 144, y0 + 66, 24, 20, () -> { c.bgDim = Math.min(90, c.bgDim + 5); Config.save(); });
+                button(g, th, "Clear image", px + 124, y0 + 92, 168, 20, () -> {
+                    c.bgImage = ""; c.bgEnabled = false; bgBox.setValue(""); Config.save(); status = "Background cleared";
+                });
+                g.text(font, "Put PNG files in:", px + 124, y0 + 120, 0xFFB9BDCB, true);
+                g.text(font, ".minecraft/config/tenskugamblehud/", px + 124, y0 + 132, 0xFFB9BDCB, true);
+                g.text(font, "Used on cards and menus.", px + 124, y0 + 144, 0xFFB9BDCB, true);
+            }
+            case 8 -> {
+                label(g, th, "HUD", y0 - 12);
+                toggle(g, th, "Profit Tracker", c.profitCard, y0, () -> { c.profitCard = !c.profitCard; Config.save(); });
+                toggle(g, th, "Auction", c.auctionEnabled, y0 + 22, () -> { c.auctionEnabled = !c.auctionEnabled; Config.save(); });
+                button(g, th, "Edit HUD (move / resize)", px + 124, y0 + 52, 168, 20, () -> minecraft.gui.setScreen(new HudEditScreen()));
+                button(g, th, "Reset positions + size", px + 124, y0 + 76, 168, 20, () -> { c.resetHud(); status = "HUD reset"; });
+                g.text(font, "In the editor click a card to pick", px + 124, y0 + 106, 0xFFB9BDCB, true);
+                g.text(font, "it up, click again to drop it.", px + 124, y0 + 118, 0xFFB9BDCB, true);
             }
             default -> { }
         }
