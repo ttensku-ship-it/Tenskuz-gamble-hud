@@ -218,8 +218,8 @@ public final class Model3D {
 
                 if (!pt.overlay()) {
                     float dot = Math.max(0f, nrm[0] * lx + nrm[1] * ly + nrm[2] * lz);
-                    float bright = 0.60f + 0.40f * dot;
-                    face.shade = Math.max(0, Math.min(200, (int) ((1f - bright) * 210f))) << 24;
+                    float bright = 0.50f + 0.50f * dot;
+                    face.shade = Math.max(0, Math.min(215, (int) ((1f - bright) * 235f))) << 24;
                     face.tint = p.tint;
                 }
                 out.add(face);

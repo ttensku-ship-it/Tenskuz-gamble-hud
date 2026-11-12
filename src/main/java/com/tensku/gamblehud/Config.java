@@ -39,6 +39,10 @@ public class Config {
     public int winnerBannerSeconds = 5;
     public int resultDisplaySeconds = 20;
     public String host = "";
+    // last values used in the auction screen
+    public int lastAuctionSeconds = 60;
+    public double lastStartBid = 0;
+    public double lastMinRaise = 0;
     public java.util.List<String> favourites = new java.util.ArrayList<>();
 
     // leaderboard ledger: player -> [paid you, you paid them]

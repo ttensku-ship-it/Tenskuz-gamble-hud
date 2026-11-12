@@ -43,24 +43,30 @@ public final class DancingSkin {
         Identifier skin = skinTexture(mc);
         if (skin == null) return;
 
-        int areaL = 4, areaR = panelX - 4, avail = areaR - areaL;
+        // the panel has 12px of empty padding before the tabs start, so the show may reach 8px into it
+        int areaL = 4, areaR = panelX + 8, avail = areaR - areaL;
         if (avail < 64) return; // no room left of the menu
 
         int S = avail >= 200 ? 3 : 2;
-        float near = 17f, far = 31f;
+        float near = 17f, far = 29f;
         boolean withZombie = avail >= (far + 16f) * S + 8;
 
         float t = (System.currentTimeMillis() % 1_000_000L) / 1000f;
         SCENE.update(t, near, far, withZombie);
 
         float widthUnits = withZombie ? far + 16f : 16f;
-        float playerX = areaL + (avail - widthUnits * S) / 2f + 8f * S;
+        // sit toward the right side of the free space (60% of the slack goes on the left)
+        float playerX = areaL + (avail - widthUnits * S) * 0.6f + 8f * S;
         float feetY = panelY + panelH / 2f + 40f;
         float hipY = feetY - Model3D.FEET_DROP * S;
 
         GuiCanvas canvas = new GuiCanvas(g);
 
-        // shadows
+        Theme th = Theme.current();
+        int accent = th.accent() & 0xFFFFFF;
+
+        // glowing stage under the player, then the soft shadows on top of it
+        stage(g, playerX, feetY, (withZombie ? 13f : 11f) * S, accent, t);
         shadow(g, playerX + SCENE.player.x * S, feetY, 8f * S);
         if (withZombie && SCENE.zombieVisible) {
             shadow(g, playerX + SCENE.zombie.x * S, feetY, 8f * S * SCENE.zombie.scale);
@@ -68,9 +74,13 @@ public final class DancingSkin {
 
         // zombie first so your fists end up in front of it
         if (withZombie && SCENE.zombieVisible) {
+            outline(canvas, ZOMBIE, SCENE.zombie, playerX, hipY, S);
             Model3D.draw(canvas, ZOMBIE, false, SCENE.zombie, playerX, hipY, S);
         }
+        outline(canvas, skin, SCENE.player, playerX, hipY, S);
         Model3D.draw(canvas, skin, true, SCENE.player, playerX, hipY, S);
+
+        sparkles(g, playerX, hipY, S, accent, t);
 
         // smoke puff when the zombie goes down
         if (withZombie && SCENE.poof >= 0f) {
@@ -88,13 +98,64 @@ public final class DancingSkin {
             }
         }
 
-        // username on top
+        // username on top, on a little name tag
         String name = mc.player != null ? mc.player.getName().getString() : mc.getUser().getName();
-        int nx = (int) (playerX - font.width(name) / 2f);
-        nx = Math.max(areaL, Math.min(areaR - font.width(name), nx));
-        g.text(font, name, nx, (int) (hipY - 21 * S - 14), 0xFFFFFFFF, true);
+        int nw = font.width(name) + 10;
+        int nx = (int) (playerX - nw / 2f);
+        nx = Math.max(areaL, Math.min(areaR - nw, nx));
+        int ny = (int) (hipY - 21 * S - 18);
+        g.fill(nx - 1, ny - 1, nx + nw + 1, ny + 13, alpha(accent, 0.55f));
+        g.fill(nx, ny, nx + nw, ny + 12, 0xCC0B0C12);
+        g.fill(nx, ny + 11, nx + nw, ny + 12, 0xFF000000 | accent);
+        g.text(font, name, nx + 5, ny + 2, 0xFFFFFFFF, true);
 
         drawBadge(g, font, areaL, areaR, (int) playerX, (int) feetY + 12, t);
+    }
+
+    /** Black 1px silhouette around a character so it pops off the panel (skin overlays are skipped). */
+    private static void outline(GuiCanvas canvas, Identifier tex, Model3D.Pose p, float cx, float cy, int S) {
+        Model3D.Pose o = new Model3D.Pose();
+        o.set(p);
+        o.tint = 0xFF08090F;
+        float d = 1f;
+        Model3D.draw(canvas, tex, false, o, cx - d, cy, S);
+        Model3D.draw(canvas, tex, false, o, cx + d, cy, S);
+        Model3D.draw(canvas, tex, false, o, cx, cy - d, S);
+        Model3D.draw(canvas, tex, false, o, cx, cy + d, S);
+    }
+
+    /** A pulsing glowing disc the characters stand on. */
+    private static void stage(GuiGraphicsExtractor g, float cx, float y, float halfW, int rgb, float t) {
+        float pulse = 0.5f + 0.5f * (float) Math.sin(t * 2.2f);
+        for (int i = -5; i <= 5; i++) {
+            float k = 1f - (i * i) / 30f;
+            float w = halfW * (float) Math.sqrt(Math.max(0f, k));
+            g.fill((int) (cx - w - 4), (int) y + i, (int) (cx + w + 4), (int) y + i + 1, alpha(rgb, 0.05f + 0.04f * pulse));
+        }
+        for (int i = -4; i <= 4; i++) {
+            float k = 1f - (i * i) / 20f;
+            float w = halfW * (float) Math.sqrt(Math.max(0f, k));
+            int x1 = (int) (cx - w), x2 = (int) (cx + w);
+            g.fill(x1, (int) y + i, x2, (int) y + i + 1, 0x77000000);
+            // bright rim on the edge of the disc
+            float rim = Math.abs(i) >= 3 ? 0.40f + 0.25f * pulse : 0.14f;
+            g.fill(x1, (int) y + i, x1 + 2, (int) y + i + 1, alpha(rgb, rim));
+            g.fill(x2 - 2, (int) y + i, x2, (int) y + i + 1, alpha(rgb, rim));
+            if (Math.abs(i) == 4) g.fill(x1, (int) y + i, x2, (int) y + i + 1, alpha(rgb, 0.22f + 0.2f * pulse));
+        }
+    }
+
+    /** A few little lights drifting up around the player. */
+    private static void sparkles(GuiGraphicsExtractor g, float cx, float hipY, int S, int rgb, float t) {
+        for (int i = 0; i < 9; i++) {
+            float k = (t * (0.18f + (i % 4) * 0.05f) + i * 0.37f) % 1f;
+            float side = ((i * 53) % 100) / 100f - 0.5f;
+            float x = cx + side * 20f * S + (float) Math.sin(t * 1.6f + i) * 3f;
+            float y = hipY + 8f * S - k * 34f * S;
+            int a = (int) (Math.sin(k * Math.PI) * 200f);
+            int sz = i % 3 == 0 ? 2 : 1;
+            g.fill((int) x, (int) y, (int) x + sz, (int) y + sz, (a << 24) | ((i % 2 == 0) ? 0xFFFFFF : rgb));
+        }
     }
 
     private static void shadow(GuiGraphicsExtractor g, float cx, float y, float halfW) {

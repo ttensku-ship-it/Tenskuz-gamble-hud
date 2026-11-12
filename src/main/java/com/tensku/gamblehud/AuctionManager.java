@@ -21,6 +21,8 @@ public final class AuctionManager {
     public static boolean active = false;
     public static String item = "";
     public static double startBid = 0;
+    /** Minimum amount a new bid must beat the current top bid by. */
+    public static double minRaise = 0;
     public static double topBid = 0;
     public static String topBidder = "";
     public static long endAt = 0;
@@ -40,6 +42,11 @@ public final class AuctionManager {
     }
 
     public static void start(String name, int seconds, double minBid, String image) {
+        start(name, seconds, minBid, 0, image);
+    }
+
+    public static void start(String name, int seconds, double minBid, double raise, String image) {
+        minRaise = Math.max(0, raise);
         item = name.isBlank() ? "Auction item" : name.trim();
         itemImage = image == null ? "" : image.trim();
         bids = 0;
@@ -103,7 +110,8 @@ public final class AuctionManager {
     }
 
     private static void placeBid(String who, double amount) {
-        if (amount <= 0 || amount < startBid || amount <= topBid) return;
+        double need = topBidder.isEmpty() ? startBid : topBid + minRaise;
+        if (amount <= 0 || amount < need || amount <= topBid) return;
         topBid = amount;
         topBidder = who;
         bids++;
@@ -117,7 +125,7 @@ public final class AuctionManager {
         g.fill(x, y, x + size, y + size, 0xFF0B0C12);
         CustomImage.Tex t = CustomImage.auctionIcon(name, img);
         if (t != null) {
-            CustomImage.fit(g, t, x + 2, y + 2, size - 4);
+            Item3D.draw(g, t, x + size / 2f, y + size / 2f, size - 8, System.currentTimeMillis(), th.accent() & 0xFFFFFF);
         } else {
             String ch = name.isBlank() ? "?" : name.substring(0, 1).toUpperCase();
             g.text(mc.font, ch, x + (size - mc.font.width(ch)) / 2, y + (size - 8) / 2, th.accent(), true);
@@ -130,6 +138,13 @@ public final class AuctionManager {
      */
     public static void drawCard(GuiGraphicsExtractor g, Minecraft mc, Theme th, String name, String img,
                                 long left, long total, String topLine, boolean hasBid, String host,
+                                int bidCount, long lastBid, long now) {
+        drawCard(g, mc, th, name, img, left, total, topLine, hasBid, host, null, bidCount, lastBid, now);
+    }
+
+    /** minLine (nullable) replaces the host line, e.g. "Next bid: $6M+". */
+    public static void drawCard(GuiGraphicsExtractor g, Minecraft mc, Theme th, String name, String img,
+                                long left, long total, String topLine, boolean hasBid, String host, String minLine,
                                 int bidCount, long lastBid, long now) {
         final int w = Hud.AUC_W, h = Hud.AUC_H;
         boolean urgent = left <= 10_000;
@@ -170,6 +185,8 @@ public final class AuctionManager {
         g.text(mc.font, Ui.fit(mc.font, topLine, w - 53), 48, 49, hasBid ? 0xFF7CFF9B : 0xFFB9BDCB, true);
         if (fresh) {
             g.text(mc.font, "NEW BID!", 48, 60, Theme.alpha(0xF2C94C, 0.6f + 0.4f * pulse), true);
+        } else if (minLine != null && !minLine.isEmpty()) {
+            g.text(mc.font, Ui.fit(mc.font, minLine, w - 53), 48, 60, 0xFFFFD166, true);
         } else if (host != null && !host.isEmpty()) {
             g.text(mc.font, Ui.fit(mc.font, "Host: " + host, w - 53), 48, 60, 0xFFB9BDCB, true);
         }
@@ -226,8 +243,11 @@ public final class AuctionManager {
                 String top = topBidder.isEmpty()
                     ? "No bids - from " + Money.format(startBid)
                     : Money.format(topBid) + " - " + topBidder;
+                String minLine = minRaise > 0
+                    ? "Next bid: " + Money.format((topBidder.isEmpty() ? startBid : topBid + minRaise)) + "+"
+                    : null;
                 drawCard(g, mc, th, item, itemImage, left, totalMs, top, !topBidder.isEmpty(),
-                         Config.I.host, bids, lastBidAt, now);
+                         Config.I.host, minLine, bids, lastBidAt, now);
                 yOff = Hud.AUC_H + 6;
             }
             if (showResult) {
