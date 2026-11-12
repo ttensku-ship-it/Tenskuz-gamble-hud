@@ -3,7 +3,7 @@
   "id": "tenskugamblehud",
   "version": "${version}",
   "name": "Tensku Gamble Hud",
-  "description": "Gamble HUD with profit tracker, pay confirm, themes, big-payment animation and themed chat.",
+  "description": "Gamble HUD with profit tracker, pay confirm, themes, big-payment animation, a dancing skin and menu music.",
   "authors": ["tensku"],
   "license": "MIT",
   "environment": "client",

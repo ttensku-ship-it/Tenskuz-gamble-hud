@@ -8,9 +8,8 @@ import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
 import org.lwjgl.sdl.SDLScancode;
 
 import java.util.regex.Matcher;
@@ -28,6 +27,10 @@ public class TenskuGambleHud implements ClientModInitializer {
     private static final Pattern HAS_BAL = Pattern.compile("(\\w{3,16}) has " + AMT);
     private static final Pattern MY_BAL = Pattern.compile("(?i)(?:you have|your (?:money|balance)(?: is)?:?|balance(?: is)?:?)\\s*" + AMT);
     private static final Pattern PAY_CMD = Pattern.compile("^pay\\s+(\\S+)\\s+(\\S+).*$", Pattern.CASE_INSENSITIVE);
+
+    /** Menu song: put an .ogg at assets/tenskugamblehud/sounds/menu_music.ogg (see sounds.json). */
+    public static final SoundEvent MENU_MUSIC =
+        SoundEvent.createVariableRangeEvent(Identifier.fromNamespaceAndPath(MOD_ID, "menu_music"));
 
     private static KeyMapping openKey;
     private static boolean bypassPayGuard = false;
@@ -60,15 +63,6 @@ public class TenskuGambleHud implements ClientModInitializer {
             ProfitCard.render(graphics, mc);
             AuctionManager.render(graphics, mc, w, h);
             PaymentAnimation.render(graphics, w, h);
-        });
-
-        // Tint chat with theme colour (only parts the server did not colour)
-        ClientReceiveMessageEvents.MODIFY_GAME.register((message, overlay) -> {
-            if (overlay || !Config.I.chatColor) return message;
-            int rgb = Theme.current().chat();
-            MutableComponent out = Component.empty().withStyle(s -> s.withColor(rgb));
-            out.append(message);
-            return out;
         });
 
         // Detect payments + balance

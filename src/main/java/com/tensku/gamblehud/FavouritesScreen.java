@@ -84,6 +84,7 @@ public class FavouritesScreen extends Screen {
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit h = hits.get(i);
             if (mx >= h.x() && mx < h.x() + h.w() && my >= h.y() && my < h.y() + h.h()) {
+                Ui.click();
                 h.action().run();
                 return true;
             }

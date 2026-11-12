@@ -90,6 +90,7 @@ public class HudEditScreen extends Screen {
         if (super.mouseClicked(event, doubleClick)) return true; // a button was clicked
         int mx = (int) event.x(), my = (int) event.y();
         if (grabbed >= 0) {
+            Ui.click();
             grabbed = -1;
             Config.save();
             return true;
@@ -97,12 +98,14 @@ public class HudEditScreen extends Screen {
         int[] pr = Hud.profitRect(width, height);
         int[] ar = Hud.auctionRect(width, height);
         if (inside(pr, mx, my)) {
+            Ui.click();
             grabbed = 0;
             offX = mx - pr[0];
             offY = my - pr[1];
             return true;
         }
         if (inside(ar, mx, my)) {
+            Ui.click();
             grabbed = 1;
             offX = mx - ar[0];
             offY = my - ar[1];

@@ -4,6 +4,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
@@ -11,7 +13,7 @@ import java.util.List;
 
 public class HubScreen extends Screen {
     private static final int W = 400, H = 270;
-    private static final String[] TABS = {"Overview", "Auction", "Profit", "Pay Confirm", "Alerts", "Chat", "Themes", "Background", "HUD"};
+    private static final String[] TABS = {"Overview", "Auction", "Profit", "Pay Confirm", "Alerts", "Themes", "Background", "HUD"};
 
     private record Hit(int x, int y, int w, int h, Runnable action) {}
 
@@ -20,6 +22,7 @@ public class HubScreen extends Screen {
     private int px, py;
     private EditBox payBox, alertBox, goalBox, winnerBox, resultBox, bgBox;
     private String status = "";
+    private SoundInstance music;
 
     public HubScreen() {
         super(Component.literal(TenskuGambleHud.TITLE));
@@ -39,6 +42,34 @@ public class HubScreen extends Screen {
         bgBox = box(cx, y0 + 42, Config.I.bgImage);
         bgBox.setMaxLength(60);
         updateBoxes();
+        if (Config.I.menuMusic) startMusic();
+    }
+
+    private void startMusic() {
+        if (music != null && minecraft.getSoundManager().isActive(music)) return;
+        music = SimpleSoundInstance.forMusic(TenskuGambleHud.MENU_MUSIC);
+        minecraft.getSoundManager().play(music);
+    }
+
+    private void stopMusic() {
+        if (music != null) minecraft.getSoundManager().stop(music);
+        music = null;
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        // loop the song while the menu is open
+        if (Config.I.menuMusic && music != null && !minecraft.getSoundManager().isActive(music)) {
+            music = SimpleSoundInstance.forMusic(TenskuGambleHud.MENU_MUSIC);
+            minecraft.getSoundManager().play(music);
+        }
+    }
+
+    @Override
+    public void removed() {
+        stopMusic();
+        super.removed();
     }
 
     private EditBox box(int x, int y, String value) {
@@ -55,7 +86,7 @@ public class HubScreen extends Screen {
         alertBox.setVisible(tab == 4);
         winnerBox.setVisible(tab == 1);
         resultBox.setVisible(tab == 1);
-        bgBox.setVisible(tab == 7);
+        bgBox.setVisible(tab == 6);
     }
 
     // ---------- drawing helpers ----------
@@ -106,6 +137,9 @@ public class HubScreen extends Screen {
         String credit = TenskuGambleHud.CREDIT;
         g.text(font, credit, px + W - 14 - font.width(credit), py + H - 14, 0xFF9AA0B5, true);
 
+        // dancing skin on the left of the menu
+        DancingSkin.render(g, font, minecraft, px, py, H);
+
         // tabs
         for (int i = 0; i < TABS.length; i++) {
             final int idx = i;
@@ -125,10 +159,11 @@ public class HubScreen extends Screen {
                 toggle(g, th, "Payment Alerts", c.paymentAlerts, y0 + 22, () -> { c.paymentAlerts = !c.paymentAlerts; Config.save(); });
                 toggle(g, th, "Profit Tracker", c.profitCard, y0 + 44, () -> { c.profitCard = !c.profitCard; Config.save(); });
                 toggle(g, th, "Pay Confirm", c.payConfirm, y0 + 66, () -> { c.payConfirm = !c.payConfirm; Config.save(); });
-                toggle(g, th, "Chat Color", c.chatColor, y0 + 88, () -> { c.chatColor = !c.chatColor; Config.save(); });
-                button(g, th, "Open Auction", px + 124, y0 + 114, 82, 20, () -> minecraft.gui.setScreen(new AuctionScreen()));
-                button(g, th, "Test Animation", px + 210, y0 + 114, 82, 20, () -> PaymentAnimation.trigger(5_000_000, "Tensku"));
-                button(g, th, "Edit HUD (move / resize)", px + 124, y0 + 138, 168, 20, () -> minecraft.gui.setScreen(new HudEditScreen()));
+                toggle(g, th, "Menu Music", c.menuMusic, y0 + 88, () -> { c.menuMusic = !c.menuMusic; Config.save(); if (c.menuMusic) startMusic(); else stopMusic(); });
+                toggle(g, th, "Click Sounds", c.clickSounds, y0 + 110, () -> { c.clickSounds = !c.clickSounds; Config.save(); });
+                button(g, th, "Open Auction", px + 124, y0 + 136, 82, 20, () -> minecraft.gui.setScreen(new AuctionScreen()));
+                button(g, th, "Test Animation", px + 210, y0 + 136, 82, 20, () -> PaymentAnimation.trigger(5_000_000, "Tensku"));
+                button(g, th, "Edit HUD (move / resize)", px + 124, y0 + 160, 168, 20, () -> minecraft.gui.setScreen(new HudEditScreen()));
             }
             case 1 -> {
                 label(g, th, "AUCTION", y0 - 12);
@@ -186,27 +221,21 @@ public class HubScreen extends Screen {
                 button(g, th, "Legend $20B", px + 210, y0 + 154, 82, 18, () -> { minecraft.gui.setScreen(null); PaymentAnimation.preview(20_000_000_000.0, 4); });
             }
             case 5 -> {
-                label(g, th, "CHAT", y0 - 12);
-                toggle(g, th, "Chat Color", c.chatColor, y0, () -> { c.chatColor = !c.chatColor; Config.save(); });
-                g.text(font, "Chat text uses the theme colour.", px + 124, y0 + 32, 0xFFB9BDCB, true);
-                g.text(font, "Server-coloured parts stay as is.", px + 124, y0 + 44, 0xFFB9BDCB, true);
-                g.text(font, "Preview:", px + 124, y0 + 64, 0xFFB9BDCB, true);
-                g.text(font, "<tensku> this is the chat colour", px + 124, y0 + 76, 0xFF000000 | th.chat(), true);
-            }
-            case 6 -> {
                 label(g, th, "GUI THEMES", y0 - 12);
+                // two columns so every theme fits
                 for (int i = 0; i < Theme.ALL.length; i++) {
                     final int idx = i;
                     Theme t = Theme.ALL[i];
-                    int ry = y0 + i * 20;
+                    int col = i / 11, row = i % 11;
+                    int rx = px + 124 + col * 86, ry = y0 + row * 18;
                     boolean sel = c.theme == i;
-                    g.fill(px + 124, ry, px + 292, ry + 18, sel ? t.accent() : 0xCC151824);
-                    g.fillGradient(px + 128, ry + 3, px + 148, ry + 15, t.top(), t.bottom());
-                    g.text(font, t.name(), px + 154, ry + 5, sel ? 0xFF10121A : 0xFFE8E8E8, !sel);
-                    hits.add(new Hit(px + 124, ry, 168, 18, () -> { c.theme = idx; Config.save(); status = "Selected " + t.name() + "."; }));
+                    g.fill(rx, ry, rx + 82, ry + 16, sel ? t.accent() : 0xCC151824);
+                    g.fillGradient(rx + 3, ry + 3, rx + 19, ry + 13, t.top(), t.bottom());
+                    g.text(font, t.name(), rx + 24, ry + 4, sel ? 0xFF10121A : 0xFFE8E8E8, !sel);
+                    hits.add(new Hit(rx, ry, 82, 16, () -> { c.theme = idx; Config.save(); status = "Selected " + t.name() + "."; }));
                 }
             }
-            case 7 -> {
+            case 6 -> {
                 label(g, th, "BACKGROUND", y0 - 12);
                 toggle(g, th, "Custom Background", c.bgEnabled, y0, () -> { c.bgEnabled = !c.bgEnabled; Config.save(); });
                 label(g, th, "PNG FILE NAME", y0 + 30);
@@ -229,7 +258,7 @@ public class HubScreen extends Screen {
                 g.text(font, ".minecraft/config/tenskugamblehud/", px + 124, y0 + 132, 0xFFB9BDCB, true);
                 g.text(font, "Used on cards and menus.", px + 124, y0 + 144, 0xFFB9BDCB, true);
             }
-            case 8 -> {
+            case 7 -> {
                 label(g, th, "HUD", y0 - 12);
                 toggle(g, th, "Profit Tracker", c.profitCard, y0, () -> { c.profitCard = !c.profitCard; Config.save(); });
                 toggle(g, th, "Auction", c.auctionEnabled, y0 + 22, () -> { c.auctionEnabled = !c.auctionEnabled; Config.save(); });
@@ -277,6 +306,7 @@ public class HubScreen extends Screen {
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit h = hits.get(i);
             if (mx >= h.x() && mx < h.x() + h.w() && my >= h.y() && my < h.y() + h.h()) {
+                Ui.click();
                 h.action().run();
                 return true;
             }

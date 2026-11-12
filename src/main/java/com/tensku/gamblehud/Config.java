@@ -15,7 +15,8 @@ public class Config {
     public boolean alertSound = true;
     public boolean profitCard = true;
     public boolean payConfirm = false;
-    public boolean chatColor = true;
+    public boolean menuMusic = true;
+    public boolean clickSounds = true;
     public int theme = 3; // Desert
     public double alertThreshold = 1_000_000;
     public double payThreshold = 1_000_000;

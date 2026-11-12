@@ -1,0 +1,8 @@
+{
+  "menu_music": {
+    "category": "music",
+    "sounds": [
+      { "name": "tenskugamblehud:menu_music", "stream": true }
+    ]
+  }
+}

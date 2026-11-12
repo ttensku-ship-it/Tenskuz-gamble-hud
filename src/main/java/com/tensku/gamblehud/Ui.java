@@ -1,6 +1,9 @@
 package com.tensku.gamblehud;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvents;
 
 /** Shared panel drawing (background, hills, drifting particles). */
 public final class Ui {
@@ -37,6 +40,12 @@ public final class Ui {
             float fy = (((seed / 3) % 211) + (t * (0.006f + (i % 3) * 0.003f))) % (h - 4);
             g.fill(x1 + (int) fx, y1 + (int) fy, x1 + (int) fx + 2, y1 + (int) fy + 2, 0x99FFFFFF);
         }
+    }
+
+    /** Click sound for any menu button. */
+    public static void click() {
+        if (!Config.I.clickSounds) return;
+        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0f));
     }
 
     public static String time(long ms) {
