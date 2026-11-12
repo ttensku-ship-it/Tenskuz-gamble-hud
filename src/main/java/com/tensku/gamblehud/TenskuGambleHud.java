@@ -81,6 +81,7 @@ public class TenskuGambleHud implements ClientModInitializer {
             if (in.find()) {
                 double v = Money.parse(in.group(2));
                 if (v > 0) {
+                    AuctionManager.onPayment(in.group(1), v);
                     Config.I.rollDay();
                     Config.I.received += v;
                     if (Config.I.balance >= 0) Config.I.balance += v;
