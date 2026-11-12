@@ -82,6 +82,16 @@ public final class AuctionManager {
         String who = m.group(1) != null ? m.group(1) : m.group(2);
         if (who.equalsIgnoreCase(Config.I.host)) return; // host does not bid on own auction
         double amount = Money.parse(m.group(3));
+        placeBid(who, amount);
+    }
+
+    /** Called when someone pays you ("X paid you $5M"). During an auction the payment counts as their bid. */
+    public static void onPayment(String who, double amount) {
+        if (!active || !Config.I.auctionEnabled) return;
+        placeBid(who, amount);
+    }
+
+    private static void placeBid(String who, double amount) {
         if (amount <= 0 || amount < startBid || amount <= topBid) return;
         topBid = amount;
         topBidder = who;
