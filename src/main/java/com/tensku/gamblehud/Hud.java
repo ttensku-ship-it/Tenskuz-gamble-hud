@@ -6,6 +6,8 @@ public final class Hud {
 
     public static final int PROFIT_W = 124;
     public static final int AUC_W = 160, AUC_H = 110;
+    /** The floating auction item: name + timer box on top, the spinning item below it. */
+    public static final int FLOAT_W = 130, FLOAT_H = 80;
 
     public static float clamp(float s) {
         return Math.max(0.6f, Math.min(2.0f, s));
@@ -31,6 +33,12 @@ public final class Hud {
         float s = clamp(Config.I.auctionScale);
         int w = Math.round(AUC_W * s), h = Math.round(AUC_H * s);
         return rect(Config.I.auctionX, Config.I.auctionY, sw - w - 6, 6, w, h, sw, sh);
+    }
+
+    public static int[] floatRect(int sw, int sh) {
+        float s = clamp(Config.I.floatScale);
+        int w = Math.round(FLOAT_W * s), h = Math.round(FLOAT_H * s);
+        return rect(Config.I.floatX, Config.I.floatY, (sw - w) / 2, (int) (sh * 0.64f) - Math.round(52 * s), w, h, sw, sh);
     }
 
     private static int[] rect(float fx, float fy, int dx, int dy, int w, int h, int sw, int sh) {

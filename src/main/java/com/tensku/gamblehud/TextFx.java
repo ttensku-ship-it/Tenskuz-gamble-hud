@@ -42,7 +42,7 @@ public final class TextFx {
         String txt = it.text == null ? "" : it.text;
         float s = scale(it);
         int p = pad(it);
-        int w = (int) Math.ceil(font.width(codes(it) + txt) * s) + 2 * p;
+        int w = (int) Math.ceil(HudFont.width(font, codes(it) + txt) * s) + 2 * p;
         int h = (int) Math.ceil(9 * s) + 2 * p;
         int x = Math.round(it.x * Math.max(0, sw - w));
         int y = Math.round(it.y * Math.max(0, sh - h));
@@ -102,12 +102,12 @@ public final class TextFx {
         int ix = (int) Math.floor(x), iy = (int) Math.floor(y);
         float fx = x - ix, fy = y - iy;
         if (fx == 0f && fy == 0f) {
-            g.text(font, str, ix, iy, color, shadow);
+            HudFont.text(g, font, str, ix, iy, color, shadow);
             return;
         }
         g.pose().pushMatrix();
         g.pose().translate(fx, fy);
-        g.text(font, str, ix, iy, color, shadow);
+        HudFont.text(g, font, str, ix, iy, color, shadow);
         g.pose().popMatrix();
     }
 
@@ -145,7 +145,7 @@ public final class TextFx {
             } else {
                 tx(g, font, ch, cx, yy, col, shadow);
             }
-            cx += font.width(ch);
+            cx += HudFont.width(font, ch);
         }
     }
 

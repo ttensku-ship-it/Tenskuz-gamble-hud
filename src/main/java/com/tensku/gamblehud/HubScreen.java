@@ -234,6 +234,8 @@ public class HubScreen extends Screen {
                 button(g, th, "Open Auction", px + 124, y0 + 24, 82, 20, () -> minecraft.gui.setScreen(new AuctionScreen()));
                 button(g, th, "Favourites", px + 210, y0 + 24, 82, 20, () -> minecraft.gui.setScreen(new FavouritesScreen()));
                 toggle(g, th, "Floating item on screen", c.floatingItem, y0 + 142, () -> { c.floatingItem = !c.floatingItem; Config.save(); });
+                toggle(g, th, "Winner cutscene", c.winnerCutscene, y0 + 164, () -> { c.winnerCutscene = !c.winnerCutscene; Config.save(); });
+                button(g, th, "Test cutscene (closes menu)", px + 124, y0 + 188, 168, 18, () -> { minecraft.gui.setScreen(null); Cutscene.preview(); });
                 g.text(font, "HOST: " + (c.host.isEmpty() ? "-" : c.host), px + 124, y0 + 50, 0xFFE8E8E8, true);
                 label(g, th, "WINNER BANNER TIME (0-60s)", y0 + 66);
                 button(g, th, "Set", px + 124 + 116, y0 + 78, 52, 18, () -> {
@@ -339,6 +341,13 @@ public class HubScreen extends Screen {
                 button(g, th, "Reset positions + size", px + 124, y0 + 76, 168, 20, () -> { c.resetHud(); status = "HUD reset"; });
                 g.text(font, "In the editor click a card to pick", px + 124, y0 + 106, 0xFFB9BDCB, true);
                 g.text(font, "it up, click again to drop it.", px + 124, y0 + 118, 0xFFB9BDCB, true);
+                label(g, th, "HUD FONT", y0 + 134);
+                button(g, th, "<", px + 124, y0 + 146, 24, 20, () -> HudFont.cycle(-1));
+                button(g, th, Ui.fit(font, c.hudFont == null ? HudFont.MINECRAFT : c.hudFont, 108), px + 150, y0 + 146, 116, 20, () -> HudFont.cycle(1));
+                button(g, th, ">", px + 268, y0 + 146, 24, 20, () -> HudFont.cycle(1));
+                g.fill(px + 124, y0 + 170, px + 292, y0 + 190, 0xCC151824);
+                HudFont.text(g, font, "Aa Bb 123 $5,000,000", px + 130, y0 + 176, 0xFFFFFFFF, true);
+                toggle(g, th, "List all installed fonts", c.hudFontAll, y0 + 194, () -> { c.hudFontAll = !c.hudFontAll; Config.save(); });
             }
             case 8 -> {
                 label(g, th, "LEADERBOARD", y0 - 12);

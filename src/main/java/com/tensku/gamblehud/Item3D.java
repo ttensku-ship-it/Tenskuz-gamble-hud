@@ -15,7 +15,13 @@ public final class Item3D {
 
     /** Draws the item centred on (cx, cy) inside a size x size area. */
     public static void draw(GuiGraphicsExtractor g, CustomImage.Tex t, float cx, float cy, int size, long now, int accentRgb) {
-        float ang = (now % 4200L) / 4200f * (float) (Math.PI * 2.0);
+        draw(g, t, cx, cy, size, now, accentRgb, true, 1f);
+    }
+
+    /** Same, with the floor shadow optional (off when the item is in the air) and a spin speed multiplier. */
+    public static void draw(GuiGraphicsExtractor g, CustomImage.Tex t, float cx, float cy, int size, long now, int accentRgb,
+                            boolean shadow, float spinSpeed) {
+        float ang = (((long) (now * spinSpeed)) % 4200L) / 4200f * (float) (Math.PI * 2.0);
         float c = (float) Math.cos(ang), s = (float) Math.sin(ang);
         float bob = (float) Math.sin(now / 500.0) * Math.max(1.2f, size * 0.07f);
 
@@ -34,10 +40,12 @@ public final class Item3D {
         }
 
         // floor shadow that shrinks as the item bobs up
-        int sw = (int) (size * 0.38f * (1f - 0.1f * bob));
-        int fy = (int) (cy + size / 2f + 1);
-        g.fill((int) cx - sw, fy, (int) cx + sw, fy + 1, 0x55000000);
-        g.fill((int) cx - sw + 2, fy + 1, (int) cx + sw - 2, fy + 2, 0x33000000);
+        if (shadow) {
+            int sw = (int) (size * 0.38f * (1f - 0.1f * bob));
+            int fy = (int) (cy + size / 2f + 1);
+            g.fill((int) cx - sw, fy, (int) cx + sw, fy + 1, 0x55000000);
+            g.fill((int) cx - sw + 2, fy + 1, (int) cx + sw - 2, fy + 2, 0x33000000);
+        }
 
         float depth = Math.max(3f, size * 0.20f);
         float squash = Math.max(0.10f, Math.abs(c));

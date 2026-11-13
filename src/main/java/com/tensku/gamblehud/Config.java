@@ -32,11 +32,17 @@ public class Config {
     public String bgImage = "";
     public int bgDim = 35;
 
+    // HUD font: "Minecraft" or the name of a font installed on the PC; hudFontAll = list every installed font in the picker
+    public String hudFont = "Minecraft";
+    public boolean hudFontAll = false;
+
     // big-payment animation style: 0 = auto by amount, 1..4 = fixed
     public int animStyle = 0;
 
     public boolean auctionEnabled = false;
     public boolean floatingItem = true; // big spinning item in the middle of the screen during an auction
+    public float floatX = -1, floatY = -1, floatScale = 1f; // where the floating item sits (-1 = default spot) + size
+    public boolean winnerCutscene = true; // your skin hands the item to the winner's skin when an auction ends
     public int winnerBannerSeconds = 5;
     public int resultDisplaySeconds = 20;
     public String host = "";
@@ -142,8 +148,8 @@ public class Config {
     }
 
     public void resetHud() {
-        profitX = profitY = auctionX = auctionY = -1;
-        profitScale = auctionScale = 1f;
+        profitX = profitY = auctionX = auctionY = floatX = floatY = -1;
+        profitScale = auctionScale = floatScale = 1f;
         save();
     }
 

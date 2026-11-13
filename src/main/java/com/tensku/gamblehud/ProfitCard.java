@@ -27,11 +27,11 @@ public final class ProfitCard {
         g.fill(-1, -1, w + 1, h + 1, th.accent());
         Ui.backdrop(g, th, 0, 0, w, h);
         g.fill(0, 0, w, 13, 0x66000000);
-        g.text(mc.font, "PROFIT", 5, 3, th.accent(), true);
+        HudFont.text(g, mc.font, "PROFIT", 5, 3, th.accent(), true);
         String today = "TODAY";
-        g.text(mc.font, today, w - 5 - mc.font.width(today), 3, 0xFFB9BDCB, true);
+        HudFont.text(g, mc.font, today, w - 5 - HudFont.width(mc.font, today), 3, 0xFFB9BDCB, true);
         String v = (net >= 0 ? "+" : "") + Money.format(net);
-        g.text(mc.font, v, 5, 17, net >= 0 ? 0xFF7CFF9B : 0xFFFF6B6B, true);
+        HudFont.text(g, mc.font, v, 5, 17, net >= 0 ? 0xFF7CFF9B : 0xFFFF6B6B, true);
 
         int baseH = Hud.profitBaseH();
         if (Config.I.dailyGoal > 0) {

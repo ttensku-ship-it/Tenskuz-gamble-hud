@@ -64,6 +64,7 @@ public class TenskuGambleHud implements ClientModInitializer {
             ProfitCard.render(graphics, mc);
             AuctionManager.render(graphics, mc, w, h);
             TextOverlay.render(graphics, mc);
+            Cutscene.render(graphics, mc, w, h);
             Fireworks.render(graphics, w, h);
             PaymentAnimation.render(graphics, w, h);
         });

@@ -151,7 +151,7 @@ public final class PaymentAnimation {
 
     private static void waveText(GuiGraphicsExtractor g, Minecraft mc, String text, int cx, int y,
                                  float scale, float t, float fade) {
-        int total = mc.font.width(text);
+        int total = HudFont.width(mc.font, text);
         g.pose().pushMatrix();
         g.pose().translate((float) cx, (float) y);
         g.pose().scale(scale, scale);
@@ -159,8 +159,8 @@ public final class PaymentAnimation {
         for (int i = 0; i < text.length(); i++) {
             String ch = String.valueOf(text.charAt(i));
             int dy = (int) (Math.sin(t * 7f + i * 0.7f) * 2.5f);
-            g.text(mc.font, ch, x, dy, Theme.alpha(rainbow(t * 0.7f + i * 0.08f), fade), true);
-            x += mc.font.width(ch);
+            HudFont.text(g, mc.font, ch, x, dy, Theme.alpha(rainbow(t * 0.7f + i * 0.08f), fade), true);
+            x += HudFont.width(mc.font, ch);
         }
         g.pose().popMatrix();
     }
@@ -188,8 +188,8 @@ public final class PaymentAnimation {
         final float amtScale = AMT_SCALE[tier];
         final String amt = "+" + Money.format(f.amount);
         final String sub = tier >= 3 ? "from " + f.from : TIER_NAMES[tier] + "  -  " + f.from;
-        final int aw = mc.font.width(amt);
-        final int bw = Math.max(Math.max(170, mc.font.width(sub) + 30), (int) (aw * amtScale) + 40);
+        final int aw = HudFont.width(mc.font, amt);
+        final int bw = Math.max(Math.max(170, HudFont.width(mc.font, sub) + 30), (int) (aw * amtScale) + 40);
         final int bh = (int) (8 * amtScale) + 26;
         final int target = tier >= 3 ? (int) (sh * 0.24f) : 22;
         final float slide = Math.min(1f, t / 0.55f);
@@ -286,11 +286,11 @@ public final class PaymentAnimation {
         g.pose().pushMatrix();
         g.pose().translate(sw / 2f, by + 6f);
         g.pose().scale(scale, scale);
-        g.text(mc.font, amt, -aw / 2, 0, Theme.alpha(amtColor, fade), true);
+        HudFont.text(g, mc.font, amt, -aw / 2, 0, Theme.alpha(amtColor, fade), true);
         g.pose().popMatrix();
 
-        int sw2 = mc.font.width(sub);
-        g.text(mc.font, sub, (sw - sw2) / 2, by + 6 + (int) (8 * amtScale) + 5, Theme.alpha(0xFFE9B0, fade), true);
+        int sw2 = HudFont.width(mc.font, sub);
+        HudFont.text(g, mc.font, sub, (sw - sw2) / 2, by + 6 + (int) (8 * amtScale) + 5, Theme.alpha(0xFFE9B0, fade), true);
 
         // shimmer sweep
         float sweep = (t * 1.4f) % 1.6f;

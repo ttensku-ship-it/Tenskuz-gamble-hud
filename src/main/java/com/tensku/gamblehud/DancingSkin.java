@@ -28,7 +28,7 @@ public final class DancingSkin {
     private static int badgeX, badgeY, badgeW, badgeH;
 
     /** Draws the model faces through the GUI's matrix stack (every face is a sheared, rotated texture quad). */
-    private static final class GuiCanvas implements Model3D.Canvas {
+    static final class GuiCanvas implements Model3D.Canvas {
         private final GuiGraphicsExtractor g;
         /** Height of the texture being drawn (64, or 32 for the skeleton's legacy layout). */
         int texH = 64;
@@ -261,7 +261,7 @@ public final class DancingSkin {
     }
 
     /** Black 1px silhouette around a character so it pops off the panel (skin overlays are skipped). */
-    private static void outline(GuiCanvas canvas, Identifier tex, boolean skeleton, Model3D.Pose p, float cx, float cy, int S) {
+    static void outline(GuiCanvas canvas, Identifier tex, boolean skeleton, Model3D.Pose p, float cx, float cy, int S) {
         Model3D.Pose o = new Model3D.Pose();
         o.set(p);
         o.tint = 0xFF08090F;

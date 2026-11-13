@@ -94,10 +94,16 @@ public final class AuctionManager {
         String winner = topBidder.isEmpty() ? null : topBidder;
         result = new Result(item, winner, topBid);
         long now = System.currentTimeMillis();
-        bannerUntil = winner != null ? now + Config.I.winnerBannerSeconds * 1000L : 0;
-        resultUntil = Config.I.resultDisplaySeconds > 0 ? now + Config.I.resultDisplaySeconds * 1000L : 0;
-        if (winner != null) Fireworks.launch();
         Minecraft mc = Minecraft.getInstance();
+        boolean cut = winner != null && Config.I.winnerCutscene && mc.player != null;
+        long bannerMs = Config.I.winnerBannerSeconds * 1000L;
+        if (cut && bannerMs > 0) bannerMs += Cutscene.DURATION_MS; // the banner waits until the cutscene is over
+        bannerUntil = winner != null ? now + bannerMs : 0;
+        resultUntil = Config.I.resultDisplaySeconds > 0 ? now + Config.I.resultDisplaySeconds * 1000L : 0;
+        if (winner != null) {
+            if (cut) Cutscene.start(item, itemImage, winner, topBid); // it launches the fireworks itself
+            else Fireworks.launch();
+        }
         if (mc.player != null) {
             String msg = winner == null
                 ? "[Tensku] Auction ended: no bids for " + item
@@ -143,7 +149,7 @@ public final class AuctionManager {
             Item3D.draw(g, t, x + size / 2f, y + size / 2f, size - 8, System.currentTimeMillis(), th.accent() & 0xFFFFFF);
         } else {
             String ch = name.isBlank() ? "?" : name.substring(0, 1).toUpperCase();
-            g.text(mc.font, ch, x + (size - mc.font.width(ch)) / 2, y + (size - 8) / 2, th.accent(), true);
+            HudFont.text(g, mc.font, ch, x + (size - HudFont.width(mc.font, ch)) / 2, y + (size - 8) / 2, th.accent(), true);
         }
     }
 
@@ -181,20 +187,20 @@ public final class AuctionManager {
         g.fill(0, 0, w, 14, 0xAA0B0C12);
         g.fill(0, 14, w, 15, Theme.alpha(border, 0.6f));
         g.fill(6, 5, 10, 9, Theme.alpha(0xFF4D4D, 0.45f + 0.55f * pulse));
-        g.text(mc.font, "LIVE AUCTION", 14, 3, th.accent(), true);
+        HudFont.text(g, mc.font, "LIVE AUCTION", 14, 3, th.accent(), true);
         String right = bidCount + (bidCount == 1 ? " bid" : " bids");
-        g.text(mc.font, right, w - 5 - mc.font.width(right), 3, 0xFFB9BDCB, true);
+        HudFont.text(g, mc.font, right, w - 5 - HudFont.width(mc.font, right), 3, 0xFFB9BDCB, true);
 
         // item picture
         icon(g, th, mc, name, img, 6, 21, 36);
 
         // item name + big timer
-        g.text(mc.font, Ui.fit(mc.font, name, w - 53), 48, 20, 0xFFFFFFFF, true);
+        HudFont.text(g, mc.font, HudFont.fit(mc.font, name, w - 53), 48, 20, 0xFFFFFFFF, true);
         int tc = urgent ? ((now / 400) % 2 == 0 ? 0xFFFF6B6B : 0xFFFFFFFF) : (warn ? 0xFFFFD166 : 0xFFFFFFFF);
         g.pose().pushMatrix();
         g.pose().translate(48f, 30f);
         g.pose().scale(2f, 2f);
-        g.text(mc.font, Ui.time(left), 0, 0, tc, true);
+        HudFont.text(g, mc.font, Ui.time(left), 0, 0, tc, true);
         g.pose().popMatrix();
 
         // circular countdown ring
@@ -214,13 +220,13 @@ public final class AuctionManager {
             float a = 1f - since / 900f;
             g.fill(46, 47, w - 3, 58, Theme.alpha(0xF2C94C, a * 0.35f));
         }
-        g.text(mc.font, Ui.fit(mc.font, topLine, w - 53), 48, 49, hasBid ? 0xFF7CFF9B : 0xFFB9BDCB, true);
+        HudFont.text(g, mc.font, HudFont.fit(mc.font, topLine, w - 53), 48, 49, hasBid ? 0xFF7CFF9B : 0xFFB9BDCB, true);
         if (fresh) {
-            g.text(mc.font, "NEW BID!", 48, 60, Theme.alpha(0xF2C94C, 0.6f + 0.4f * pulse), true);
+            HudFont.text(g, mc.font, "NEW BID!", 48, 60, Theme.alpha(0xF2C94C, 0.6f + 0.4f * pulse), true);
         } else if (minLine != null && !minLine.isEmpty()) {
-            g.text(mc.font, Ui.fit(mc.font, minLine, w - 53), 48, 60, 0xFFFFD166, true);
+            HudFont.text(g, mc.font, HudFont.fit(mc.font, minLine, w - 53), 48, 60, 0xFFFFD166, true);
         } else if (host != null && !host.isEmpty()) {
-            g.text(mc.font, Ui.fit(mc.font, "Host: " + host, w - 53), 48, 60, 0xFFB9BDCB, true);
+            HudFont.text(g, mc.font, HudFont.fit(mc.font, "Host: " + host, w - 53), 48, 60, 0xFFB9BDCB, true);
         }
 
         // progress bar with ticks and a moving shine
@@ -246,32 +252,33 @@ public final class AuctionManager {
         for (int i = 0; i < 3; i++) {
             int ry = 78 + i * 10;
             g.fill(3, ry, w - 3, ry + 9, (i % 2 == 0) ? 0x99000000 : 0x66000000);
-            g.text(mc.font, String.valueOf(i + 1), 6, ry + 1, medal[i], true);
+            HudFont.text(g, mc.font, String.valueOf(i + 1), 6, ry + 1, medal[i], true);
             if (board != null && i < board.length) {
                 String amt = board[i][1];
-                g.text(mc.font, Ui.fit(mc.font, board[i][0], w - 26 - mc.font.width(amt) - 6), 16, ry + 1, 0xFFFFFFFF, true);
-                g.text(mc.font, amt, w - 6 - mc.font.width(amt), ry + 1, 0xFF7CFF9B, true);
+                HudFont.text(g, mc.font, HudFont.fit(mc.font, board[i][0], w - 26 - HudFont.width(mc.font, amt) - 6), 16, ry + 1, 0xFFFFFFFF, true);
+                HudFont.text(g, mc.font, amt, w - 6 - HudFont.width(mc.font, amt), ry + 1, 0xFF7CFF9B, true);
             } else {
-                g.text(mc.font, "-", 16, ry + 1, 0xFF6A708A, true);
+                HudFont.text(g, mc.font, "-", 16, ry + 1, 0xFF6A708A, true);
             }
         }
     }
 
     /** The item floating and spinning in the middle of the screen, with its name and the timer above it. */
-    private static void drawFloating(GuiGraphicsExtractor g, Minecraft mc, Theme th, int sw, int sh, long left, long now) {
-        int cx = sw / 2, cy = (int) (sh * 0.64f);
+    static void drawFloating(GuiGraphicsExtractor g, Minecraft mc, Theme th, String item, String itemImage, long left, long now) {
+        // drawn with the top-left of its area (Hud.floatRect) at (0, 0)
+        int cx = Hud.FLOAT_W / 2, cy = 52;
         CustomImage.Tex t = CustomImage.auctionIcon(item, itemImage);
         if (t != null) Item3D.draw(g, t, cx, cy, 44, now, th.accent() & 0xFFFFFF);
 
-        String nm = Ui.fit(mc.font, item, 160);
+        String nm = HudFont.fit(mc.font, item, 160);
         String tm = Ui.time(left);
-        int bw = Math.max(mc.font.width(nm), mc.font.width(tm)) + 14;
+        int bw = Math.max(HudFont.width(mc.font, nm), HudFont.width(mc.font, tm)) + 14;
         int bx = cx - bw / 2, by = cy - 22 - 30;
         g.fill(bx, by, bx + bw, by + 25, 0xAA0B0C12);
         g.fill(bx, by + 24, bx + bw, by + 25, th.accent());
-        g.text(mc.font, nm, cx - mc.font.width(nm) / 2, by + 3, 0xFFFFFFFF, true);
+        HudFont.text(g, mc.font, nm, cx - HudFont.width(mc.font, nm) / 2, by + 3, 0xFFFFFFFF, true);
         int tc = left <= 10_000 ? ((now / 400) % 2 == 0 ? 0xFFFF6B6B : 0xFFFFFFFF) : 0xFFFFA84D;
-        g.text(mc.font, tm, cx - mc.font.width(tm) / 2, by + 14, tc, true);
+        HudFont.text(g, mc.font, tm, cx - HudFont.width(mc.font, tm) / 2, by + 14, tc, true);
     }
 
     /** Result card, drawn with its top-left corner at (0, 0) of the current pose. */
@@ -281,11 +288,11 @@ public final class AuctionManager {
         g.fill(-1, -1, w + 1, h + 1, border);
         Ui.backdrop(g, th, 0, 0, w, h);
         g.fill(0, 0, w, 14, 0xAA0B0C12);
-        g.text(mc.font, "AUCTION RESULT", 6, 3, th.accent(), true);
+        HudFont.text(g, mc.font, "AUCTION RESULT", 6, 3, th.accent(), true);
         icon(g, th, mc, result.item(), itemImage, 6, 18, 26);
-        g.text(mc.font, Ui.fit(mc.font, result.item(), w - 46), 38, 20, 0xFFFFFFFF, true);
+        HudFont.text(g, mc.font, HudFont.fit(mc.font, result.item(), w - 46), 38, 20, 0xFFFFFFFF, true);
         String line = result.winner() == null ? "No bids" : result.winner() + " - " + Money.format(result.amount());
-        g.text(mc.font, Ui.fit(mc.font, line, w - 46), 38, 32, result.winner() == null ? 0xFFB9BDCB : 0xFF7CFF9B, true);
+        HudFont.text(g, mc.font, HudFont.fit(mc.font, line, w - 46), 38, 32, result.winner() == null ? 0xFFB9BDCB : 0xFF7CFF9B, true);
     }
 
     public static void render(GuiGraphicsExtractor g, Minecraft mc, int sw, int sh) {
@@ -323,16 +330,24 @@ public final class AuctionManager {
             g.pose().popMatrix();
         }
 
-        if (active && Config.I.floatingItem) drawFloating(g, mc, th, sw, sh, Math.max(0, endAt - now), now);
+        if (active && Config.I.floatingItem) {
+            int[] fr = Hud.floatRect(sw, sh);
+            float fs = Hud.clamp(Config.I.floatScale);
+            g.pose().pushMatrix();
+            g.pose().translate((float) fr[0], (float) fr[1]);
+            g.pose().scale(fs, fs);
+            drawFloating(g, mc, th, item, itemImage, Math.max(0, endAt - now), now);
+            g.pose().popMatrix();
+        }
 
-        if (result != null && result.winner() != null && now < bannerUntil) {
+        if (result != null && result.winner() != null && now < bannerUntil && !Cutscene.running()) {
             float leftS = (bannerUntil - now) / 1000f;
             float fade = Math.min(1f, leftS / 0.5f);
             float pop = Math.min(1f, (Config.I.winnerBannerSeconds - leftS) / 0.35f);
             String l1 = "AUCTION WON";
             String l2 = result.winner() + "  " + Money.format(result.amount());
-            String l3 = Ui.fit(mc.font, result.item(), 220);
-            int bw = Math.max(200, (int) (mc.font.width(l2) * 1.6f) + 30);
+            String l3 = HudFont.fit(mc.font, result.item(), 220);
+            int bw = Math.max(200, (int) (HudFont.width(mc.font, l2) * 1.6f) + 30);
             int bh = 50;
             int bx = (sw - bw) / 2;
             int by = (int) (sh / 4f - 30 + 30 * pop);
@@ -340,13 +355,13 @@ public final class AuctionManager {
             g.fill(bx - 2, by - 2, bx + bw + 2, by + bh + 2, Theme.alpha(0xF2C94C, fade * (0.7f + 0.3f * pulse)));
             g.fillGradient(bx, by, bx + bw, by + bh, Theme.alpha(th.top() & 0xFFFFFF, fade * 0.95f),
                            Theme.alpha(th.bottom() & 0xFFFFFF, fade * 0.95f));
-            g.text(mc.font, l1, (sw - mc.font.width(l1)) / 2, by + 5, Theme.alpha(th.accent() & 0xFFFFFF, fade), true);
+            HudFont.text(g, mc.font, l1, (sw - HudFont.width(mc.font, l1)) / 2, by + 5, Theme.alpha(th.accent() & 0xFFFFFF, fade), true);
             g.pose().pushMatrix();
             g.pose().translate(sw / 2f, by + 17f);
             g.pose().scale(1.6f, 1.6f);
-            g.text(mc.font, l2, -mc.font.width(l2) / 2, 0, Theme.alpha(0x7CFF9B, fade), true);
+            HudFont.text(g, mc.font, l2, -HudFont.width(mc.font, l2) / 2, 0, Theme.alpha(0x7CFF9B, fade), true);
             g.pose().popMatrix();
-            g.text(mc.font, l3, (sw - mc.font.width(l3)) / 2, by + bh - 12, Theme.alpha(0xFFE9B0, fade), true);
+            HudFont.text(g, mc.font, l3, (sw - HudFont.width(mc.font, l3)) / 2, by + bh - 12, Theme.alpha(0xFFE9B0, fade), true);
         }
     }
 }

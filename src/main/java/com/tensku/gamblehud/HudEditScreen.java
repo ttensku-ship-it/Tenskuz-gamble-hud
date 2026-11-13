@@ -6,9 +6,9 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
-/** Move and resize the profit card and auction timer. Click a card to pick it up, click again to drop it. */
+/** Move and resize the profit card, auction timer and floating auction item. Click a card to pick it up, click again to drop it. */
 public class HudEditScreen extends Screen {
-    private int grabbed = -1; // -1 none, 0 profit, 1 auction
+    private int grabbed = -1; // -1 none, 0 profit, 1 auction, 2 floating item
     private int offX, offY;
 
     public HudEditScreen() {
@@ -28,6 +28,9 @@ public class HudEditScreen extends Screen {
         btn("Profit +", x0 + 78, y1, 74, () -> { Config.I.profitScale = Hud.clamp(Config.I.profitScale + 0.1f); Config.save(); });
         btn("Auction -", x0 + 156, y1, 74, () -> { Config.I.auctionScale = Hud.clamp(Config.I.auctionScale - 0.1f); Config.save(); });
         btn("Auction +", x0 + 234, y1, 74, () -> { Config.I.auctionScale = Hud.clamp(Config.I.auctionScale + 0.1f); Config.save(); });
+        int y3 = height - 76;
+        btn("Item -", x0, y3, 74, () -> { Config.I.floatScale = Hud.clamp(Config.I.floatScale - 0.1f); Config.save(); });
+        btn("Item +", x0 + 78, y3, 74, () -> { Config.I.floatScale = Hud.clamp(Config.I.floatScale + 0.1f); Config.save(); });
         btn("Reset", cx - 104, y2, 100, () -> { grabbed = -1; Config.I.resetHud(); });
         btn("Done", cx + 4, y2, 100, this::onClose);
     }
@@ -50,15 +53,18 @@ public class HudEditScreen extends Screen {
 
         // a card that is picked up follows the mouse
         if (grabbed >= 0) {
-            int[] r = grabbed == 0 ? Hud.profitRect(width, height) : Hud.auctionRect(width, height);
+            int[] r = grabbed == 0 ? Hud.profitRect(width, height) : grabbed == 1 ? Hud.auctionRect(width, height) : Hud.floatRect(width, height);
             int nx = Math.max(0, Math.min(width - r[2], mouseX - offX));
             int ny = Math.max(0, Math.min(height - r[3], mouseY - offY));
             if (grabbed == 0) {
                 Config.I.profitX = Hud.frac(nx, r[2], width);
                 Config.I.profitY = Hud.frac(ny, r[3], height);
-            } else {
+            } else if (grabbed == 1) {
                 Config.I.auctionX = Hud.frac(nx, r[2], width);
                 Config.I.auctionY = Hud.frac(ny, r[3], height);
+            } else {
+                Config.I.floatX = Hud.frac(nx, r[2], width);
+                Config.I.floatY = Hud.frac(ny, r[3], height);
             }
         }
 
@@ -77,11 +83,21 @@ public class HudEditScreen extends Screen {
         g.pose().popMatrix();
         frame(g, ar, "Auction timer (sample)", grabbed == 1);
 
+        int[] fr = Hud.floatRect(width, height);
+        float fs = Hud.clamp(Config.I.floatScale);
+        g.pose().pushMatrix();
+        g.pose().translate((float) fr[0], (float) fr[1]);
+        g.pose().scale(fs, fs);
+        AuctionManager.drawFloating(g, minecraft, th, "Diamond Sword", "", 83_000, now);
+        g.pose().popMatrix();
+        frame(g, fr, "Auction item (sample)", grabbed == 2);
+
         String help = grabbed >= 0 ? "Click to drop it here" : "Click a card to pick it up, click again to drop it";
         g.text(font, help, (width - font.width(help)) / 2, 8, 0xFFFFFFFF, true);
         String sizes = "Profit size " + Math.round(Hud.clamp(Config.I.profitScale) * 100) + "%      Auction size "
-            + Math.round(Hud.clamp(Config.I.auctionScale) * 100) + "%";
-        g.text(font, sizes, (width - font.width(sizes)) / 2, height - 66, 0xFFB9BDCB, true);
+            + Math.round(Hud.clamp(Config.I.auctionScale) * 100) + "%      Item size "
+            + Math.round(Hud.clamp(Config.I.floatScale) * 100) + "%";
+        g.text(font, sizes, (width - font.width(sizes)) / 2, height - 90, 0xFFB9BDCB, true);
 
         super.extractRenderState(g, mouseX, mouseY, partialTick);
     }
@@ -98,6 +114,14 @@ public class HudEditScreen extends Screen {
         }
         int[] pr = Hud.profitRect(width, height);
         int[] ar = Hud.auctionRect(width, height);
+        int[] fr = Hud.floatRect(width, height);
+        if (inside(fr, mx, my) && !inside(pr, mx, my) && !inside(ar, mx, my)) {
+            Ui.click();
+            grabbed = 2;
+            offX = mx - fr[0];
+            offY = my - fr[1];
+            return true;
+        }
         if (inside(pr, mx, my)) {
             Ui.click();
             grabbed = 0;
