@@ -36,6 +36,7 @@ public class Config {
     public int animStyle = 0;
 
     public boolean auctionEnabled = false;
+    public boolean floatingItem = true; // big spinning item in the middle of the screen during an auction
     public int winnerBannerSeconds = 5;
     public int resultDisplaySeconds = 20;
     public String host = "";
@@ -47,6 +48,15 @@ public class Config {
 
     // leaderboard ledger: player -> [paid you, you paid them]
     public java.util.Map<String, double[]> ledger = new java.util.HashMap<>();
+
+    // profit & loss: balance snapshots as {epochMillis, balance}, oldest first
+    public java.util.List<double[]> history = new java.util.ArrayList<>();
+    public int pnlRange = 0;            // 0 session, 1 24h, 2 7d, 3 30d, 4 all
+    public boolean profitGraph = false; // small graph under the HUD profit card
+
+    // custom on-screen text
+    public boolean textEnabled = true;
+    public java.util.List<TextItem> texts = new java.util.ArrayList<>();
 
     public double balance = -1; // -1 = unknown (type /bal once)
     public double received = 0;
@@ -74,6 +84,30 @@ public class Config {
         try {
             Files.writeString(path(), GSON.toJson(I));
         } catch (Exception ignored) { }
+    }
+
+    /** Remember the current balance for the P&L graph (call after every balance change). */
+    public void snapshot() {
+        if (balance < 0) return;
+        if (history == null) history = new java.util.ArrayList<>();
+        long now = System.currentTimeMillis();
+        if (!history.isEmpty()) {
+            double[] last = history.get(history.size() - 1);
+            if (last[1] == balance && now - last[0] < 600_000L) return;       // nothing new
+            if (last[1] != balance && now - last[0] < 1000L) {                // burst of changes: merge
+                last[0] = now;
+                last[1] = balance;
+                return;
+            }
+        }
+        history.add(new double[] {now, balance});
+        if (history.size() > 4000) {                                          // thin out the oldest half
+            java.util.List<double[]> kept = new java.util.ArrayList<>();
+            for (int i = 0; i < history.size(); i++) {
+                if (i >= 2000 || i % 2 == 0) kept.add(history.get(i));
+            }
+            history = kept;
+        }
     }
 
     public void rollDay() {

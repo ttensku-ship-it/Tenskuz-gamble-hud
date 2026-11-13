@@ -83,6 +83,7 @@ public class AuctionScreen extends Screen {
         btn("End Now", x + 78, py + 250, 72, () -> { AuctionManager.endNow(); status = "Ended"; });
         btn("Cancel", x, py + 272, 74, () -> { AuctionManager.cancel(); status = "Cancelled"; });
         btn("Back", x + 78, py + 272, 72, () -> minecraft.gui.setScreen(new HubScreen()));
+        btn("Test Fireworks", px + 172, py + 274, 136, () -> { minecraft.gui.setScreen(null); Fireworks.launch(); });
     }
 
     @Override
@@ -141,8 +142,7 @@ public class AuctionScreen extends Screen {
         }
 
         if (!status.isEmpty()) g.text(font, status, rx + 6, py + 252, 0xFF9DFFB0, true);
-        g.text(font, "Empty picture = item icon", rx + 6, py + 266, 0xFF9AA0B5, true);
-        g.text(font, "ESC - close", px + 14, py + H - 12, 0xFF9AA0B5, true);
+                g.text(font, "ESC - close", px + 14, py + H - 12, 0xFF9AA0B5, true);
         String credit = TenskuGambleHud.CREDIT;
         g.text(font, credit, px + W - 14 - font.width(credit), py + H - 12, 0xFF9AA0B5, true);
 

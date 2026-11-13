@@ -33,10 +33,16 @@ public final class ProfitCard {
         String v = (net >= 0 ? "+" : "") + Money.format(net);
         g.text(mc.font, v, 5, 17, net >= 0 ? 0xFF7CFF9B : 0xFFFF6B6B, true);
 
+        int baseH = Hud.profitBaseH();
         if (Config.I.dailyGoal > 0) {
             float p = (float) Math.max(0, Math.min(1, net / Config.I.dailyGoal));
-            g.fill(5, h - 8, w - 5, h - 4, 0x99000000);
-            g.fill(5, h - 8, 5 + (int) ((w - 10) * p), h - 4, th.accent());
+            g.fill(5, baseH - 8, w - 5, baseH - 4, 0x99000000);
+            g.fill(5, baseH - 8, 5 + (int) ((w - 10) * p), baseH - 4, th.accent());
+        }
+
+        if (Config.I.profitGraph) {
+            PnlChart.draw(g, mc.font, 5, baseH + 1, w - 10, h - baseH - 6, Pnl.points(Config.I.pnlRange),
+                false, -1, -1, th.accent() & 0xFFFFFF);
         }
 
         g.pose().popMatrix();

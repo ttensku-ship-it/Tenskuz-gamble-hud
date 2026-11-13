@@ -13,7 +13,7 @@ import java.util.List;
 
 public class HubScreen extends Screen {
     private static final int W = 400, H = 270;
-    private static final String[] TABS = {"Overview", "Auction", "Profit", "Pay Confirm", "Alerts", "Themes", "Background", "HUD", "Leaderboard"};
+    private static final String[] TABS = {"Overview", "Auction", "Profit", "Pay Confirm", "Alerts", "Themes", "Background", "HUD", "Leaderboard", "P&L", "Text"};
 
     private record Hit(int x, int y, int w, int h, Runnable action) {}
 
@@ -205,11 +205,11 @@ public class HubScreen extends Screen {
         // tabs
         for (int i = 0; i < TABS.length; i++) {
             final int idx = i;
-            int ty = py + 36 + i * 24;
+            int ty = py + 36 + i * 20;
             boolean sel = i == tab;
-            g.fill(px + 12, ty, px + 112, ty + 22, sel ? th.accent() : 0xCC151824);
-            g.text(font, TABS[i], px + 20, ty + 7, sel ? 0xFF10121A : 0xFFE8E8E8, !sel);
-            hits.add(new Hit(px + 12, ty, 100, 22, () -> { tab = idx; updateBoxes(); status = ""; }));
+            g.fill(px + 12, ty, px + 112, ty + 18, sel ? th.accent() : 0xCC151824);
+            g.text(font, TABS[i], px + 20, ty + 5, sel ? 0xFF10121A : 0xFFE8E8E8, !sel);
+            hits.add(new Hit(px + 12, ty, 100, 18, () -> { tab = idx; updateBoxes(); status = ""; }));
         }
 
         int y0 = py + 36;
@@ -233,6 +233,7 @@ public class HubScreen extends Screen {
                 toggle(g, th, "Auction (bids + HUD)", c.auctionEnabled, y0, () -> { c.auctionEnabled = !c.auctionEnabled; Config.save(); });
                 button(g, th, "Open Auction", px + 124, y0 + 24, 82, 20, () -> minecraft.gui.setScreen(new AuctionScreen()));
                 button(g, th, "Favourites", px + 210, y0 + 24, 82, 20, () -> minecraft.gui.setScreen(new FavouritesScreen()));
+                toggle(g, th, "Floating item on screen", c.floatingItem, y0 + 142, () -> { c.floatingItem = !c.floatingItem; Config.save(); });
                 g.text(font, "HOST: " + (c.host.isEmpty() ? "-" : c.host), px + 124, y0 + 50, 0xFFE8E8E8, true);
                 label(g, th, "WINNER BANNER TIME (0-60s)", y0 + 66);
                 button(g, th, "Set", px + 124 + 116, y0 + 78, 52, 18, () -> {
@@ -386,12 +387,94 @@ public class HubScreen extends Screen {
                 }
                 button(g, th, "Reset Leaderboard", px + 124, y0 + 178, 168, 16, () -> { c.ledger.clear(); Config.save(); status = "Leaderboard reset"; });
             }
+            case 9 -> {
+                label(g, th, "PROFIT & LOSS", y0 - 12);
+                int fx = px + 124, fw = 264;
+                // range selector
+                for (int i = 0; i < Pnl.RANGES.length; i++) {
+                    final int ri = i;
+                    int bx = fx + i * 53;
+                    boolean selR = c.pnlRange == i;
+                    g.fill(bx, y0, bx + 50, y0 + 16, selR ? th.accent() : 0xCC151824);
+                    g.fill(bx, y0, bx + 50, y0 + 1, selR ? 0xFFFFFFFF : th.accent());
+                    String rn = Pnl.RANGES[i];
+                    g.text(font, rn, bx + (50 - font.width(rn)) / 2, y0 + 5, selR ? 0xFF10121A : 0xFFE8E8E8, !selR);
+                    hits.add(new Hit(bx, y0, 50, 16, () -> { c.pnlRange = ri; Config.save(); }));
+                }
+                var pts = Pnl.points(c.pnlRange);
+                double ch = Pnl.change(pts);
+                double pc = Pnl.percent(pts);
+                int pcol = ch >= 0 ? 0xFF7CFF9B : 0xFFFF6B6B;
+                String pl = pts.size() < 2 ? "No data yet" : Pnl.signed(ch) + (pc != 0 ? String.format("  (%+.1f%%)", pc) : "");
+                g.text(font, "P/L", fx, y0 + 22, 0xFFB9BDCB, true);
+                g.text(font, pl, fx + 20, y0 + 22, pts.size() < 2 ? 0xFF9AA0B5 : pcol, true);
+                String balS = c.balance >= 0 ? Money.format(c.balance) : "type /bal";
+                g.text(font, balS, fx + fw - font.width(balS), y0 + 22, 0xFFFFFFFF, true);
+                String balL = "BALANCE";
+                g.text(font, balL, fx + fw - font.width(balS) - 6 - font.width(balL), y0 + 22, 0xFFB9BDCB, true);
+
+                PnlChart.draw(g, font, fx, y0 + 36, fw, 84, pts, true, mouseX, mouseY, th.accent() & 0xFFFFFF);
+
+                // numbers under the graph
+                int ry = y0 + 136;
+                if (pts.size() >= 2) {
+                    g.text(font, "HIGH", fx, ry, 0xFFB9BDCB, true);
+                    g.text(font, Money.format(Pnl.high(pts)), fx + 28, ry, 0xFF7CFF9B, true);
+                    g.text(font, "LOW", fx + 132, ry, 0xFFB9BDCB, true);
+                    g.text(font, Money.format(Pnl.low(pts)), fx + 154, ry, 0xFFFF6B6B, true);
+                }
+                var bw = Pnl.bestWorstDay();
+                if (bw != null) {
+                    g.text(font, "BEST DAY", fx, ry + 12, 0xFFB9BDCB, true);
+                    g.text(font, Pnl.fmtDate(bw[0].date()) + "  " + Pnl.signed(bw[0].change()), fx + 52, ry + 12, bw[0].change() >= 0 ? 0xFF7CFF9B : 0xFFFF6B6B, true);
+                    g.text(font, "WORST DAY", fx, ry + 24, 0xFFB9BDCB, true);
+                    g.text(font, Pnl.fmtDate(bw[1].date()) + "  " + Pnl.signed(bw[1].change()), fx + 58, ry + 24, bw[1].change() >= 0 ? 0xFF7CFF9B : 0xFFFF6B6B, true);
+                }
+                double tn = c.net();
+                g.text(font, "TODAY", fx, ry + 36, 0xFFB9BDCB, true);
+                g.text(font, (tn >= 0 ? "+" : "") + Money.format(tn), fx + 36, ry + 36, tn >= 0 ? 0xFF7CFF9B : 0xFFFF6B6B, true);
+                g.text(font, "IN " + Money.format(c.received) + "  OUT " + Money.format(c.sent), fx + 100, ry + 36, 0xFFB9BDCB, true);
+
+                toggle(g, th, "Graph on HUD card", c.profitGraph, y0 + 182, () -> { c.profitGraph = !c.profitGraph; Config.save(); });
+                button(g, th, "Clear history", fx + 172, y0 + 182, 92, 20, () -> {
+                    c.history.clear();
+                    c.snapshot();
+                    Config.save();
+                    status = "History cleared";
+                });
+            }
+            case 10 -> {
+                label(g, th, "SCREEN TEXT", y0 - 12);
+                toggle(g, th, "Show custom text", c.textEnabled, y0, () -> { c.textEnabled = !c.textEnabled; Config.save(); });
+                button(g, th, "Open Text Editor", px + 124, y0 + 26, 168, 20, () -> minecraft.gui.setScreen(new TextEditScreen()));
+                label(g, th, "YOUR TEXTS", y0 + 54);
+                var texts = c.texts == null ? new java.util.ArrayList<TextItem>() : c.texts;
+                if (texts.isEmpty()) {
+                    g.text(font, "None yet. Open the editor", px + 124, y0 + 68, 0xFFB9BDCB, true);
+                    g.text(font, "and press Add.", px + 124, y0 + 80, 0xFFB9BDCB, true);
+                }
+                for (int i = 0; i < Math.min(7, texts.size()); i++) {
+                    final TextItem ti = texts.get(i);
+                    int ry = y0 + 66 + i * 15;
+                    g.fill(px + 124, ry, px + 292, ry + 14, (i % 2 == 0) ? 0xAA151824 : 0x88101420);
+                    String nm = Ui.fit(font, (ti.text == null || ti.text.isEmpty()) ? "(empty)" : ti.text, 100);
+                    g.text(font, nm, px + 128, ry + 3, 0xFF000000 | (ti.color & 0xFFFFFF), true);
+                    String fnm = TextFx.FONTS[Math.max(0, Math.min(TextFx.FONTS.length - 1, ti.font))];
+                    g.text(font, Ui.fit(font, fnm, 44), px + 124 + 104, ry + 3, 0xFF9AA0B5, true);
+                    String on = ti.visible ? "ON" : "OFF";
+                    g.text(font, on, px + 288 - font.width(on), ry + 3, ti.visible ? 0xFF7CFF9B : 0xFFFF6B6B, true);
+                    hits.add(new Hit(px + 124, ry, 168, 14, () -> { ti.visible = !ti.visible; Config.save(); }));
+                }
+                if (texts.size() > 7) g.text(font, "+" + (texts.size() - 7) + " more in the editor", px + 124, y0 + 66 + 7 * 15, 0xFF9AA0B5, true);
+                g.text(font, "Click a row to show / hide it.", px + 124, y0 + 176, 0xFF6A708A, true);
+            }
             default -> { }
         }
 
         if (!status.isEmpty()) g.text(font, status, px + 124, py + H - 28, 0xFF9DFFB0, true);
 
-        // right side stat card
+        // right side stat card (the P&L tab uses that space for the graph)
+        if (tab != 9) {
         int sx = px + 300, sw = 88;
         g.fill(sx, py + 36, sx + sw, py + 122, 0xCC10121A);
         g.text(font, "BALANCE", sx + 6, py + 42, 0xFFFFFFFF, true);
@@ -409,6 +492,7 @@ public class HubScreen extends Screen {
         statusLine(g, "Alerts", c.paymentAlerts, sx + 6, py + 157);
         statusLine(g, "Profit", c.profitCard, sx + 6, py + 168);
         statusLine(g, "Pay guard", c.payConfirm, sx + 6, py + 179);
+        }
 
         super.extractRenderState(g, mouseX, mouseY, partialTick);
 

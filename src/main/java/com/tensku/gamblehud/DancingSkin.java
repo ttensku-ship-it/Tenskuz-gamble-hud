@@ -8,13 +8,19 @@ import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 
 /**
- * Left of the menu: your skin as a real 3D character that dances, fights a zombie,
+ * Left of the menu: your skin as a real 3D character that dances, fights mobs with a netherite sword
+ * (and Thor's hammer on the last one),
  * has your username on top and a rank badge underneath (hover it for the progress bar).
  */
 public final class DancingSkin {
     private DancingSkin() {}
 
-    private static final Identifier ZOMBIE = Identifier.withDefaultNamespace("textures/entity/zombie/zombie.png");
+    private static final Identifier[] MOB_TEX = {
+        Identifier.withDefaultNamespace("textures/entity/zombie/zombie.png"),
+        Identifier.withDefaultNamespace("textures/entity/zombie/husk.png"),
+        Identifier.withDefaultNamespace("textures/entity/skeleton/skeleton.png"),
+        Identifier.withDefaultNamespace("textures/entity/zombie/drowned.png"),
+    };
     private static final DanceScene SCENE = new DanceScene();
 
     // badge rectangle from the last frame (for the hover tooltip)
@@ -24,6 +30,8 @@ public final class DancingSkin {
     /** Draws the model faces through the GUI's matrix stack (every face is a sheared, rotated texture quad). */
     private static final class GuiCanvas implements Model3D.Canvas {
         private final GuiGraphicsExtractor g;
+        /** Height of the texture being drawn (64, or 32 for the skeleton's legacy layout). */
+        int texH = 64;
         GuiCanvas(GuiGraphicsExtractor g) { this.g = g; }
 
         @Override
@@ -31,7 +39,7 @@ public final class DancingSkin {
                          int u, int v, int w, int h, int shade, int tint) {
             g.pose().pushMatrix();
             g.pose().mul(new Matrix3x2f(ux, uy, vx, vy, ox, oy));
-            g.blit(RenderPipelines.GUI_TEXTURED, (Identifier) tex, 0, 0, u, v, w, h, w, h, 64, 64);
+            g.blit(RenderPipelines.GUI_TEXTURED, (Identifier) tex, 0, 0, u, v, w, h, w, h, 64, texH);
             if (shade != 0) g.fill(0, 0, w, h, shade);
             if (tint != 0) g.fill(0, 0, w, h, tint);
             g.pose().popMatrix();
@@ -74,11 +82,18 @@ public final class DancingSkin {
 
         // zombie first so your fists end up in front of it
         if (withZombie && SCENE.zombieVisible) {
-            outline(canvas, ZOMBIE, SCENE.zombie, playerX, hipY, S);
-            Model3D.draw(canvas, ZOMBIE, false, SCENE.zombie, playerX, hipY, S);
+            boolean skel = SCENE.mob == DanceScene.SKELETON;
+            canvas.texH = skel ? 32 : 64;
+            outline(canvas, MOB_TEX[SCENE.mob], skel, SCENE.zombie, playerX, hipY, S);
+            Model3D.draw(canvas, MOB_TEX[SCENE.mob], false, skel, SCENE.zombie, playerX, hipY, S);
+            canvas.texH = 64;
         }
-        outline(canvas, skin, SCENE.player, playerX, hipY, S);
+        outline(canvas, skin, false, SCENE.player, playerX, hipY, S);
         Model3D.draw(canvas, skin, true, SCENE.player, playerX, hipY, S);
+
+        if (withZombie && SCENE.weaponOut) {
+            weapon(g, SCENE.player, SCENE.hammer, playerX, hipY, S, t, accent);
+        }
 
         sparkles(g, playerX, hipY, S, accent, t);
 
@@ -93,9 +108,15 @@ public final class DancingSkin {
                 int py = (int) (cy + Math.sin(ang) * r * 0.8f - k * 8f);
                 int size = Math.max(1, Math.round((1f - k) * (i % 2 == 0 ? 5 : 3)));
                 int a = (int) ((1f - k) * 230f);
-                int rgb = i % 3 == 0 ? 0x8FD18A : (i % 3 == 1 ? 0xC8C8C8 : 0x6BAA67);
+                int rgb = DanceScene.POOF[SCENE.mob][i % 3];
                 g.fill(px, py, px + size, py + size, (a << 24) | rgb);
             }
+        }
+
+        // Thor's lightning strike on the last mob
+        if (withZombie && SCENE.bolt >= 0f) {
+            float zx = playerX + SCENE.zombie.x * S;
+            lightning(g, zx, panelY + 4, hipY + 10f * S, SCENE.bolt, areaL, areaR, panelY, panelH, t);
         }
 
         // username on top, on a little name tag
@@ -112,16 +133,143 @@ public final class DancingSkin {
         drawBadge(g, font, areaL, areaR, (int) playerX, (int) feetY + 12, t);
     }
 
+    // ------------------------------------------------------------------ weapons
+
+    /**
+     * Holds the netherite sword or Thor's hammer in your right hand. The item is drawn in a small
+     * "item space" (a = along the blade/handle, b = across), which is mapped onto the screen using
+     * the real 3D direction of the forearm, so it swings with the arm.
+     */
+    private static void weapon(GuiGraphicsExtractor g, Model3D.Pose pose, boolean hammer,
+                               float cx, float cy, int S, float t, int accent) {
+        float[] hand = Model3D.armPoint(pose, true, 0f, 9f, 0f, true);
+        float hx = cx + hand[0] * S, hy = cy + hand[1] * S;
+        // blade points along the arm, tilted a little "up" relative to the fist
+        float[] dir = Model3D.armPoint(pose, true, 0f, hammer ? 0.8f : 0.85f, hammer ? 0.6f : 0.5f, false);
+        float dx = dir[0], dy = dir[1];
+        float len = (float) Math.hypot(dx, dy);
+        if (len < 0.001f) { dx = 0.7f; dy = -0.7f; len = 1f; }
+        dx /= len; dy /= len;
+        float stretch = Math.max(len, 0.5f);
+        float k = S * 0.5f * (hammer ? 1.25f : 1f);
+        float ax = dx * k * stretch, ay = dy * k * stretch;      // one item unit along the weapon
+        float bx = -dy * k, by = dx * k;                          // one item unit across it
+
+        g.pose().pushMatrix();
+        g.pose().translate(hx, hy);
+        g.pose().mul(new Matrix3x2f(ax, ay, bx, by, 0f, 0f));
+        if (hammer) drawHammer(g, t); else drawSword(g);
+        g.pose().popMatrix();
+
+        if (hammer) {
+            // static crackling around the hammer head
+            float hdx = hx + dx * 8f * k * stretch, hdy = hy + dy * 8f * k * stretch;
+            for (int i = 0; i < 6; i++) {
+                float ph = (t * 9f + i * 1.7f);
+                float ang = ph * 1.3f + i * 1.05f;
+                float r = (6f + 5f * (float) Math.abs(Math.sin(ph))) * (S / 2f);
+                int x = (int) (hdx + Math.cos(ang) * r), y = (int) (hdy + Math.sin(ang) * r);
+                int a = (int) (120 + 120 * Math.abs(Math.sin(ph * 2f)));
+                g.fill(x, y, x + 2, y + 1, (a << 24) | 0xBFE6FF);
+                g.fill(x, y, x + 1, y + 2, (a << 24) | 0xFFFFFF);
+            }
+        }
+    }
+
+    private static void rect(GuiGraphicsExtractor g, int a1, int b1, int a2, int b2, int argb) {
+        g.fill(a1, b1, a2, b2, argb);
+    }
+
+    /** Netherite sword, 30 item units long (about 15 skin pixels). */
+    private static void drawSword(GuiGraphicsExtractor g) {
+        // handle + pommel
+        rect(g, -7, -1, -1, 1, 0xFF4A2F1A);
+        rect(g, -7, -1, -5, 1, 0xFF6B4527);
+        rect(g, -9, -2, -7, 2, 0xFF2B2430);
+        // crossguard
+        rect(g, -1, -5, 2, 5, 0xFF2B2430);
+        rect(g, -1, -5, 2, -4, 0xFF6A5A78);
+        rect(g, -1, 4, 2, 5, 0xFF1A151E);
+        // blade: dark netherite with a lighter edge and a glint
+        rect(g, 2, -2, 24, 2, 0xFF3F3A44);
+        rect(g, 2, -2, 24, -1, 0xFF6E6478);
+        rect(g, 2, 1, 24, 2, 0xFF28242D);
+        rect(g, 24, -1, 27, 1, 0xFF3F3A44);
+        rect(g, 27, 0, 28, 1, 0xFF6E6478);
+        rect(g, 6, -1, 22, 0, 0xFF574F5E);
+        rect(g, 14, -1, 17, 0, 0xFFB7A8CC);   // glint
+        // warm "ancient debris" trim at the base of the blade
+        rect(g, 2, -2, 4, 2, 0xFF6B3F2E);
+    }
+
+    /** Mjolnir: stone-grey head with bands, leather-wrapped handle, blue charge glow. */
+    private static void drawHammer(GuiGraphicsExtractor g, float t) {
+        float pulse = 0.5f + 0.5f * (float) Math.sin(t * 10f);
+        int ga = (int) (50 + 50 * pulse);
+        // glow
+        rect(g, 4, -9, 17, 9, (ga << 24) | 0x5CC8FF);
+        // handle
+        rect(g, -8, -1, 6, 1, 0xFF6A4A2A);
+        rect(g, -8, -1, 6, 0, 0xFF8A6238);
+        for (int a = -6; a < 5; a += 3) rect(g, a, -1, a + 1, 1, 0xFF3A2814);   // leather wrap
+        rect(g, -10, -2, -8, 2, 0xFFB9BDC4);                                     // pommel
+        rect(g, -12, -1, -10, 1, 0xFF8A8F98);                                    // wrist loop
+        // head
+        rect(g, 6, -7, 15, 7, 0xFF8A9099);
+        rect(g, 6, -7, 15, -5, 0xFFC9CED6);                                      // top light edge
+        rect(g, 6, 5, 15, 7, 0xFF5A6068);                                        // bottom shade
+        rect(g, 6, -7, 8, 7, 0xFF6D737C);                                        // inner band
+        rect(g, 13, -7, 15, 7, 0xFF6D737C);                                      // outer band
+        rect(g, 9, -4, 12, 4, 0xFFA4AAB3);                                       // face plate
+        rect(g, 10, -2, 11, 2, 0xFF5CC8FF);                                      // rune glint
+        rect(g, 10, -1, 11, 1, 0xFFFFFFFF);
+    }
+
+    /** Jagged bolt from the top of the panel to the target, with a screen flash. */
+    private static void lightning(GuiGraphicsExtractor g, float x, float topY, float botY, float k,
+                                  int areaL, int areaR, int panelY, int panelH, float t) {
+        float fade = 1f - k;
+        // flash
+        g.fill(areaL - 4, panelY, areaR + 8, panelY + panelH, ((int) (110 * fade * fade) << 24) | 0xCFE8FF);
+        long seed = (long) Math.floor(t * 28f);
+        java.util.Random r = new java.util.Random(seed * 7919L + 13);
+        float cx = x + (r.nextFloat() - 0.5f) * 4f;
+        float y = topY;
+        int segs = 14;
+        float step = (botY - topY) / segs;
+        for (int i = 0; i < segs; i++) {
+            float nx = (i == segs - 1) ? x : cx + (r.nextFloat() - 0.5f) * 16f;
+            int y1 = (int) y, y2 = (int) (y + step) + 1;
+            int x1 = (int) Math.min(cx, nx) - 1, x2 = (int) Math.max(cx, nx) + 2;
+            g.fill(x1 - 3, y1, x2 + 3, y2, ((int) (70 * fade) << 24) | 0x5CC8FF);   // glow
+            g.fill(x1, y1, x2, y2, ((int) (255 * Math.min(1f, fade * 1.6f)) << 24) | 0xFFFFFF);
+            // little side branch
+            if (i % 4 == 2) {
+                int bx = (int) nx + (r.nextBoolean() ? 1 : -1) * (6 + r.nextInt(8));
+                g.fill(Math.min((int) nx, bx), y2, Math.max((int) nx, bx) + 1, y2 + 2, ((int) (190 * fade) << 24) | 0xBFE6FF);
+            }
+            cx = nx;
+            y += step;
+        }
+        // impact burst
+        int rr = (int) (6 + 22 * k);
+        for (int i = 0; i < 10; i++) {
+            double ang = i * 0.628 + seed;
+            int px = (int) (x + Math.cos(ang) * rr), py = (int) (botY + Math.sin(ang) * rr * 0.5);
+            g.fill(px, py, px + 2, py + 2, ((int) (230 * fade) << 24) | 0xBFE6FF);
+        }
+    }
+
     /** Black 1px silhouette around a character so it pops off the panel (skin overlays are skipped). */
-    private static void outline(GuiCanvas canvas, Identifier tex, Model3D.Pose p, float cx, float cy, int S) {
+    private static void outline(GuiCanvas canvas, Identifier tex, boolean skeleton, Model3D.Pose p, float cx, float cy, int S) {
         Model3D.Pose o = new Model3D.Pose();
         o.set(p);
         o.tint = 0xFF08090F;
         float d = 1f;
-        Model3D.draw(canvas, tex, false, o, cx - d, cy, S);
-        Model3D.draw(canvas, tex, false, o, cx + d, cy, S);
-        Model3D.draw(canvas, tex, false, o, cx, cy - d, S);
-        Model3D.draw(canvas, tex, false, o, cx, cy + d, S);
+        Model3D.draw(canvas, tex, false, skeleton, o, cx - d, cy, S);
+        Model3D.draw(canvas, tex, false, skeleton, o, cx + d, cy, S);
+        Model3D.draw(canvas, tex, false, skeleton, o, cx, cy - d, S);
+        Model3D.draw(canvas, tex, false, skeleton, o, cx, cy + d, S);
     }
 
     /** A pulsing glowing disc the characters stand on. */

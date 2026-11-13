@@ -72,7 +72,8 @@ public class HudEditScreen extends Screen {
         g.pose().translate((float) ar[0], (float) ar[1]);
         g.pose().scale(s, s);
         AuctionManager.drawCard(g, minecraft, th, "Diamond Sword", "", 83_000, 120_000,
-                                "$5M - Tensku", true, "Host", 3, 0, now);
+                                "$5M - Tensku", true, "Host", null,
+                                new String[][] {{"Tensku", "$5M"}, {"Steve", "$4.2M"}, {"Alex", "$3M"}}, 3, 0, now);
         g.pose().popMatrix();
         frame(g, ar, "Auction timer (sample)", grabbed == 1);
 

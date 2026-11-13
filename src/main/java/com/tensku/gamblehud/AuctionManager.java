@@ -28,6 +28,8 @@ public final class AuctionManager {
     public static long endAt = 0;
     public static long totalMs = 1;
     public static final List<String> log = new ArrayList<>();
+    /** Best bid of every bidder (for the top 3 board). */
+    public static final java.util.Map<String, Double> best = new java.util.HashMap<>();
 
     public static String itemImage = "";
     public static int bids = 0;
@@ -57,12 +59,23 @@ public final class AuctionManager {
         totalMs = Math.max(5, seconds) * 1000L;
         endAt = System.currentTimeMillis() + totalMs;
         log.clear();
+        best.clear();
         active = true;
         result = null;
         bannerUntil = 0;
         resultUntil = 0;
         Config.I.auctionEnabled = true;
         Config.save();
+    }
+
+    /** Top 3 bidders as {name, amount}, highest first. */
+    public static String[][] board() {
+        List<java.util.Map.Entry<String, Double>> rows = new ArrayList<>(best.entrySet());
+        rows.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
+        int n = Math.min(3, rows.size());
+        String[][] out = new String[n][];
+        for (int i = 0; i < n; i++) out[i] = new String[] {rows.get(i).getKey(), Money.format(rows.get(i).getValue())};
+        return out;
     }
 
     public static void cancel() {
@@ -83,6 +96,7 @@ public final class AuctionManager {
         long now = System.currentTimeMillis();
         bannerUntil = winner != null ? now + Config.I.winnerBannerSeconds * 1000L : 0;
         resultUntil = Config.I.resultDisplaySeconds > 0 ? now + Config.I.resultDisplaySeconds * 1000L : 0;
+        if (winner != null) Fireworks.launch();
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
             String msg = winner == null
@@ -116,6 +130,7 @@ public final class AuctionManager {
         topBidder = who;
         bids++;
         lastBidAt = System.currentTimeMillis();
+        best.merge(who, amount, Math::max);
         log.add(0, who + "  " + Money.format(amount));
         while (log.size() > 8) log.remove(log.size() - 1);
     }
@@ -146,6 +161,13 @@ public final class AuctionManager {
     public static void drawCard(GuiGraphicsExtractor g, Minecraft mc, Theme th, String name, String img,
                                 long left, long total, String topLine, boolean hasBid, String host, String minLine,
                                 int bidCount, long lastBid, long now) {
+        drawCard(g, mc, th, name, img, left, total, topLine, hasBid, host, minLine, null, bidCount, lastBid, now);
+    }
+
+    /** board (nullable): up to 3 rows of {name, amount text}, shown as the 1-2-3 leaderboard. */
+    public static void drawCard(GuiGraphicsExtractor g, Minecraft mc, Theme th, String name, String img,
+                                long left, long total, String topLine, boolean hasBid, String host, String minLine,
+                                String[][] board, int bidCount, long lastBid, long now) {
         final int w = Hud.AUC_W, h = Hud.AUC_H;
         boolean urgent = left <= 10_000;
         boolean warn = left <= 30_000;
@@ -175,6 +197,16 @@ public final class AuctionManager {
         g.text(mc.font, Ui.time(left), 0, 0, tc, true);
         g.pose().popMatrix();
 
+        // circular countdown ring
+        float rf = Math.max(0f, Math.min(1f, left / (float) Math.max(1L, total)));
+        int rcol = urgent ? 0xFFFF5A5A : (warn ? 0xFFFFD166 : th.accent());
+        for (int i = 0; i < 64; i++) {
+            double a = i / 64.0 * Math.PI * 2.0;
+            int ax = (int) Math.round(w - 21 + Math.sin(a) * 10.0);
+            int ay = (int) Math.round(37 - Math.cos(a) * 10.0);
+            g.fill(ax, ay, ax + 2, ay + 2, i / 64f < rf ? rcol : 0x44FFFFFF);
+        }
+
         // top bid row (flashes gold on a new bid)
         long since = now - lastBid;
         boolean fresh = hasBid && lastBid > 0 && since >= 0 && since < 900;
@@ -192,8 +224,8 @@ public final class AuctionManager {
         }
 
         // progress bar with ticks and a moving shine
-        int bx1 = 5, bx2 = w - 5, by1 = h - 8, by2 = h - 4;
-        float frac = Math.max(0f, Math.min(1f, left / (float) Math.max(1L, total)));
+        int bx1 = 5, bx2 = w - 5, by1 = 70, by2 = 74;
+        float frac = rf;
         int fw = (int) ((bx2 - bx1) * frac);
         int bc = urgent ? 0xFFFF5A5A : (warn ? 0xFFFFD166 : th.accent());
         g.fill(bx1, by1, bx2, by2, 0xAA000000);
@@ -208,6 +240,38 @@ public final class AuctionManager {
             int tx = bx1 + (bx2 - bx1) * i / 10;
             g.fill(tx, by1, tx + 1, by2, 0x55000000);
         }
+
+        // top 3 leaderboard
+        int[] medal = {0xFFFFD24D, 0xFFC8D0DC, 0xFFCD7F32};
+        for (int i = 0; i < 3; i++) {
+            int ry = 78 + i * 10;
+            g.fill(3, ry, w - 3, ry + 9, (i % 2 == 0) ? 0x99000000 : 0x66000000);
+            g.text(mc.font, String.valueOf(i + 1), 6, ry + 1, medal[i], true);
+            if (board != null && i < board.length) {
+                String amt = board[i][1];
+                g.text(mc.font, Ui.fit(mc.font, board[i][0], w - 26 - mc.font.width(amt) - 6), 16, ry + 1, 0xFFFFFFFF, true);
+                g.text(mc.font, amt, w - 6 - mc.font.width(amt), ry + 1, 0xFF7CFF9B, true);
+            } else {
+                g.text(mc.font, "-", 16, ry + 1, 0xFF6A708A, true);
+            }
+        }
+    }
+
+    /** The item floating and spinning in the middle of the screen, with its name and the timer above it. */
+    private static void drawFloating(GuiGraphicsExtractor g, Minecraft mc, Theme th, int sw, int sh, long left, long now) {
+        int cx = sw / 2, cy = (int) (sh * 0.64f);
+        CustomImage.Tex t = CustomImage.auctionIcon(item, itemImage);
+        if (t != null) Item3D.draw(g, t, cx, cy, 44, now, th.accent() & 0xFFFFFF);
+
+        String nm = Ui.fit(mc.font, item, 160);
+        String tm = Ui.time(left);
+        int bw = Math.max(mc.font.width(nm), mc.font.width(tm)) + 14;
+        int bx = cx - bw / 2, by = cy - 22 - 30;
+        g.fill(bx, by, bx + bw, by + 25, 0xAA0B0C12);
+        g.fill(bx, by + 24, bx + bw, by + 25, th.accent());
+        g.text(mc.font, nm, cx - mc.font.width(nm) / 2, by + 3, 0xFFFFFFFF, true);
+        int tc = left <= 10_000 ? ((now / 400) % 2 == 0 ? 0xFFFF6B6B : 0xFFFFFFFF) : 0xFFFFA84D;
+        g.text(mc.font, tm, cx - mc.font.width(tm) / 2, by + 14, tc, true);
     }
 
     /** Result card, drawn with its top-left corner at (0, 0) of the current pose. */
@@ -247,7 +311,7 @@ public final class AuctionManager {
                     ? "Next bid: " + Money.format((topBidder.isEmpty() ? startBid : topBid + minRaise)) + "+"
                     : null;
                 drawCard(g, mc, th, item, itemImage, left, totalMs, top, !topBidder.isEmpty(),
-                         Config.I.host, minLine, bids, lastBidAt, now);
+                         Config.I.host, minLine, board(), bids, lastBidAt, now);
                 yOff = Hud.AUC_H + 6;
             }
             if (showResult) {
@@ -258,6 +322,8 @@ public final class AuctionManager {
             }
             g.pose().popMatrix();
         }
+
+        if (active && Config.I.floatingItem) drawFloating(g, mc, th, sw, sh, Math.max(0, endAt - now), now);
 
         if (result != null && result.winner() != null && now < bannerUntil) {
             float leftS = (bannerUntil - now) / 1000f;

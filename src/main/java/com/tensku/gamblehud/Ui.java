@@ -27,14 +27,17 @@ public final class Ui {
         g.fill(px, py, px + w, py + h, 0xFF0E0F16);
         int x1 = px + 2, y1 = py + 2, x2 = px + w - 2, y2 = py + h - 2;
         boolean img = backdrop(g, th, x1, y1, x2, y2);
-        if (!img) {
+        boolean scenic = th.scene() != 0 && !img;
+        if (scenic) {
+            Scenery.draw(g, th.scene(), x1, y1, x2, y2, System.currentTimeMillis());
+        } else if (!img) {
             for (int x = x1; x < x2; x += 2) {
                 int hh = (int) (22 + 12 * Math.sin(x * 0.03) + 6 * Math.sin(x * 0.08));
                 g.fill(x, y2 - hh, x + 2, y2, th.hill());
             }
         }
         long t = System.currentTimeMillis();
-        for (int i = 0; i < 36; i++) {
+        for (int i = 0; i < (scenic ? 0 : 36); i++) {
             int seed = i * 7919;
             float fx = ((seed % 397) + (t * (0.004f + (i % 5) * 0.002f))) % (w - 4);
             float fy = (((seed / 3) % 211) + (t * (0.006f + (i % 3) * 0.003f))) % (h - 4);

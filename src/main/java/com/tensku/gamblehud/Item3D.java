@@ -17,7 +17,7 @@ public final class Item3D {
     public static void draw(GuiGraphicsExtractor g, CustomImage.Tex t, float cx, float cy, int size, long now, int accentRgb) {
         float ang = (now % 4200L) / 4200f * (float) (Math.PI * 2.0);
         float c = (float) Math.cos(ang), s = (float) Math.sin(ang);
-        float bob = (float) Math.sin(now / 500.0) * 1.2f;
+        float bob = (float) Math.sin(now / 500.0) * Math.max(1.2f, size * 0.07f);
 
         int dw = size, dh = size;
         if (t.w() >= t.h()) dh = Math.max(1, size * t.h() / t.w());

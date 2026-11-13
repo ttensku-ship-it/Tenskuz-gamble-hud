@@ -38,6 +38,7 @@ public class TenskuGambleHud implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         Config.load();
+        Config.I.snapshot(); // baseline point for this session's P&L graph
 
         // Keybind (default: Right Shift) - change it in Options > Controls > Key Binds.
         // 26.3 uses SDL scancodes and the 3-argument KeyMapping constructor (no InputConstants.Type).
@@ -62,6 +63,8 @@ public class TenskuGambleHud implements ClientModInitializer {
             int h = mc.getWindow().getGuiScaledHeight();
             ProfitCard.render(graphics, mc);
             AuctionManager.render(graphics, mc, w, h);
+            TextOverlay.render(graphics, mc);
+            Fireworks.render(graphics, w, h);
             PaymentAnimation.render(graphics, w, h);
         });
 
@@ -80,6 +83,7 @@ public class TenskuGambleHud implements ClientModInitializer {
                     Config.I.rollDay();
                     Config.I.received += v;
                     if (Config.I.balance >= 0) Config.I.balance += v;
+                    Config.I.snapshot();
                     Config.save();
                     if (Config.I.paymentAlerts && v >= Config.I.alertThreshold) {
                         PaymentAnimation.trigger(v, in.group(1));
@@ -95,6 +99,7 @@ public class TenskuGambleHud implements ClientModInitializer {
                     Config.I.rollDay();
                     Config.I.sent += v;
                     if (Config.I.balance >= 0) Config.I.balance = Math.max(0, Config.I.balance - v);
+                    Config.I.snapshot();
                     Config.save();
                 }
                 return;
@@ -106,13 +111,13 @@ public class TenskuGambleHud implements ClientModInitializer {
             Matcher has = HAS_BAL.matcher(text);
             if (has.find() && !me.isEmpty() && has.group(1).equalsIgnoreCase(me)) {
                 double v = Money.parse(has.group(2));
-                if (v >= 0) { Config.I.balance = v; Config.save(); }
+                if (v >= 0) { Config.I.balance = v; Config.I.snapshot(); Config.save(); }
                 return;
             }
             Matcher mine = MY_BAL.matcher(text);
             if (mine.find()) {
                 double v = Money.parse(mine.group(1));
-                if (v >= 0) { Config.I.balance = v; Config.save(); }
+                if (v >= 0) { Config.I.balance = v; Config.I.snapshot(); Config.save(); }
             }
         });
 

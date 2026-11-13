@@ -1,7 +1,12 @@
 package com.tensku.gamblehud;
 
 /** Colour themes (ARGB). Chat colour is the RGB used to tint chat messages. */
-public record Theme(String name, int top, int bottom, int hill, int accent, int chat) {
+public record Theme(String name, int top, int bottom, int hill, int accent, int chat, int scene) {
+
+    /** Plain gradient theme (no animated scenery). */
+    public Theme(String name, int top, int bottom, int hill, int accent, int chat) {
+        this(name, top, bottom, hill, accent, chat, 0);
+    }
 
     public static final Theme[] ALL = {
         new Theme("Winter",    0xFF1B2A44, 0xFF3C5E86, 0xFF8FB4D6, 0xFF9AD1FF, 0x9AD1FF),
@@ -43,6 +48,13 @@ public record Theme(String name, int top, int bottom, int hill, int accent, int 
         new Theme("Rainforest",0xFF04260F, 0xFF0F8A4A, 0xFF083A22, 0xFF3DFFB0, 0x3DFFB0),
         new Theme("Starry Night",0xFF050A24, 0xFF1F3A8A, 0xFF0A1440, 0xFFFFE066, 0xFFE066),
         new Theme("Dusk",      0xFF1A0F2E, 0xFFD6603A, 0xFF3A1A4A, 0xFFFF9A6B, 0xFF9A6B),
+        // cinematic: animated scenes with one big tree
+        new Theme("Sakura",    0xFF3A1F5C, 0xFFFFB36B, 0xFF35432F, 0xFFFF9EC8, 0xFF9EC8, Scenery.SAKURA),
+        new Theme("Maple",     0xFF3A1A12, 0xFFE8A04A, 0xFF4A2A14, 0xFFFFB347, 0xFFB347, Scenery.MAPLE),
+        new Theme("Snowpine",  0xFF0A1230, 0xFF3A5E8A, 0xFFDCE8F5, 0xFFBFE6FF, 0xBFE6FF, Scenery.PINE),
+        new Theme("Savanna",   0xFF2B1040, 0xFFFF8A3D, 0xFF1A0E12, 0xFFFFC857, 0xFFC857, Scenery.ACACIA),
+        new Theme("Moonbloom", 0xFF0B0F2E, 0xFF4B3A8A, 0xFF141C3A, 0xFFE59AD8, 0xE59AD8, Scenery.MOONBLOOM),
+        new Theme("Palms",     0xFF2A1B5C, 0xFFFFC27A, 0xFFE8C98B, 0xFFFFD08A, 0xFFD08A, Scenery.PALM),
     };
 
     public static Theme current() {

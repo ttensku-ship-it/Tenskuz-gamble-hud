@@ -97,6 +97,28 @@ public final class Model3D {
         PARTS.add(new Part(LEG_L, 2, 0, 0,    0, 6, 0,   4, 12, 4, 0, 48,  0.3f, true));
     }
 
+    /** Skeleton rig: 2-wide limbs, legacy 64x32 texture (left limbs reuse the right limb texels), no overlay. */
+    private static final List<Part> PARTS_SKEL = new ArrayList<>();
+    static {
+        PARTS_SKEL.add(new Part(BODY,  0, 0, 0,    0, -6, 0,  8, 12, 4, 16, 16, 0f, false));
+        PARTS_SKEL.add(new Part(HEAD,  0, -12, 0,  0, -4, 0,  8, 8, 8,  0, 0,   0f, false));
+        PARTS_SKEL.add(new Part(ARM_R, -5, -10, 0, 0, 4, 0,   2, 12, 2, 40, 16, 0f, false));
+        PARTS_SKEL.add(new Part(ARM_L, 5, -10, 0,  0, 4, 0,   2, 12, 2, 40, 16, 0f, false));
+        PARTS_SKEL.add(new Part(LEG_R, -2, 0, 0,   0, 6, 0,   2, 12, 2, 0, 16,  0f, false));
+        PARTS_SKEL.add(new Part(LEG_L, 2, 0, 0,    0, 6, 0,   2, 12, 2, 0, 16,  0f, false));
+    }
+
+    /**
+     * Position (or direction) in a hand's local space, in screen-ish model units relative to the hip
+     * (x right, y down; multiply by the screen scale and add the hip position).
+     * Local space: origin at the shoulder, +y runs down the arm.
+     */
+    public static float[] armPoint(Pose p, boolean right, float lx, float ly, float lz, boolean point) {
+        float[] v = {lx, ly, lz};
+        xform(v, PARTS.get(right ? ARM_R : ARM_L), p, point);
+        return v;
+    }
+
     // normal | corner sign (x,y,z) | U axis | V axis
     private static final int[][] FACES = {
         {  0,  0,  1,   -1, -1,  1,    1, 0,  0,   0, 1,  0 }, // front
@@ -169,6 +191,11 @@ public final class Model3D {
      * @param S     screen pixels per model unit
      */
     public static void draw(Canvas canvas, Object tex, boolean overlays, Pose p, float cx, float cy, float S) {
+        draw(canvas, tex, overlays, false, p, cx, cy, S);
+    }
+
+    /** Same, with the option to use the skeleton rig (thin limbs). */
+    public static void draw(Canvas canvas, Object tex, boolean overlays, boolean skeleton, Pose p, float cx, float cy, float S) {
         List<Face> out = new ArrayList<>();
         float[] pos = new float[3], dirU = new float[3], dirV = new float[3], nrm = new float[3];
 
@@ -177,7 +204,7 @@ public final class Model3D {
         float ll = (float) Math.sqrt(lx * lx + ly * ly + lz * lz);
         lx /= ll; ly /= ll; lz /= ll;
 
-        for (Part pt : PARTS) {
+        for (Part pt : (skeleton ? PARTS_SKEL : PARTS)) {
             if (pt.overlay() && !overlays) continue;
             float W = pt.w() + 2 * pt.inflate(), H = pt.h() + 2 * pt.inflate(), D = pt.d() + 2 * pt.inflate();
             float hx = W / 2, hy = H / 2, hz = D / 2;

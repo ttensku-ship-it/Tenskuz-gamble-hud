@@ -5,14 +5,19 @@ public final class Hud {
     private Hud() {}
 
     public static final int PROFIT_W = 124;
-    public static final int AUC_W = 160, AUC_H = 78;
+    public static final int AUC_W = 160, AUC_H = 110;
 
     public static float clamp(float s) {
         return Math.max(0.6f, Math.min(2.0f, s));
     }
 
-    public static int profitH() {
+    /** Height of the card without the optional graph. */
+    public static int profitBaseH() {
         return Config.I.dailyGoal > 0 ? 40 : 30;
+    }
+
+    public static int profitH() {
+        return profitBaseH() + (Config.I.profitGraph ? 38 : 0);
     }
 
     /** {x, y, w, h} in GUI pixels, scale already applied. */
