@@ -78,7 +78,7 @@ public class ConfirmPayScreen extends Screen {
     }
 
     private void cancel() {
-        play(SoundEvents.UI_BUTTON_CLICK, 0.7f);
+        play(SoundEvents.UI_BUTTON_CLICK.value(), 0.7f);
         onClose();
     }
 
@@ -134,7 +134,7 @@ public class ConfirmPayScreen extends Screen {
             if (inside(mouseX, mouseY, bx1, by1)) hover = 1;
             else if (inside(mouseX, mouseY, cx1, cy1)) hover = 2;
         }
-        if (hover != 0 && hover != lastHover) play(SoundEvents.UI_BUTTON_CLICK, 1.9f);
+        if (hover != 0 && hover != lastHover) play(SoundEvents.UI_BUTTON_CLICK.value(), 1.9f);
         lastHover = hover;
 
         // pop-in scale around the card centre
