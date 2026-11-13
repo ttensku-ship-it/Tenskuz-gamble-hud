@@ -18,6 +18,12 @@ public class Config {
     public boolean menuMusic = true;
     public boolean clickSounds = true;
     public boolean menuAnim = true;
+
+    // cosmetics: indexes into Cosmetics.CAPES / PETS / COSTUMES (0 = none)
+    public int cape = 0;
+    public int pet = 0;
+    public int costume = 0;
+    public boolean cosmeticsOnMenu = true; // show them on the skin next to the menu
     public int theme = 3; // Desert
     public double alertThreshold = 1_000_000;
     public double payThreshold = 1_000_000;

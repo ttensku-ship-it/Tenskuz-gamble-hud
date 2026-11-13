@@ -36,6 +36,7 @@ public final class Model3D {
         public float headYaw, headPitch, headRoll;
         public float armRPitch, armRRoll, armLPitch, armLRoll;
         public float legRPitch, legLPitch;
+        public float capePitch;                    // cosmetic cape swing (negative = bottom swings backwards)
         public float scale = 1f;
         public int tint;                           // ARGB flash on top of the model (hit = red)
 
@@ -44,6 +45,7 @@ public final class Model3D {
             headYaw = headPitch = headRoll = 0f;
             armRPitch = armRRoll = armLPitch = armLRoll = 0f;
             legRPitch = legLPitch = 0f;
+            capePitch = 0f;
             scale = 1f;
             tint = 0;
         }
@@ -53,6 +55,7 @@ public final class Model3D {
             headYaw = o.headYaw; headPitch = o.headPitch; headRoll = o.headRoll;
             armRPitch = o.armRPitch; armRRoll = o.armRRoll; armLPitch = o.armLPitch; armLRoll = o.armLRoll;
             legRPitch = o.legRPitch; legLPitch = o.legLPitch;
+            capePitch = o.capePitch;
             scale = o.scale; tint = o.tint;
         }
 
@@ -65,6 +68,7 @@ public final class Model3D {
             out.armRPitch = l(a.armRPitch, b.armRPitch, k); out.armRRoll = l(a.armRRoll, b.armRRoll, k);
             out.armLPitch = l(a.armLPitch, b.armLPitch, k); out.armLRoll = l(a.armLRoll, b.armLRoll, k);
             out.legRPitch = l(a.legRPitch, b.legRPitch, k); out.legLPitch = l(a.legLPitch, b.legLPitch, k);
+            out.capePitch = l(a.capePitch, b.capePitch, k);
             out.scale = l(a.scale, b.scale, k);
             out.tint = k < 0.5f ? a.tint : b.tint;
         }
@@ -74,7 +78,7 @@ public final class Model3D {
 
     // ---------------------------------------------------------------- parts
 
-    private static final int BODY = 0, HEAD = 1, ARM_R = 2, ARM_L = 3, LEG_R = 4, LEG_L = 5;
+    static final int BODY = 0, HEAD = 1, ARM_R = 2, ARM_L = 3, LEG_R = 4, LEG_L = 5, CAPE = 6;
 
     private record Part(int limb, float px, float py, float pz, float ox, float oy, float oz,
                         float w, float h, float d, int u0, int v0, float inflate, boolean overlay) {}
@@ -157,8 +161,13 @@ public final class Model3D {
 
     /** Local (box) coordinates -> camera space. point=false transforms a direction instead of a position. */
     private static void xform(float[] v, Part pt, Pose p, boolean point) {
+        xform(v, pt.limb(), pt.px(), pt.py(), pt.pz(), p, point);
+    }
+
+    private static void xform(float[] v, int limb, float ppx, float ppy, float ppz, Pose p, boolean point) {
         float rx = 0, ry = 0, rz = 0;
-        switch (pt.limb()) {
+        switch (limb) {
+            case CAPE -> rx = p.capePitch;
             case HEAD -> { rx = p.headPitch; ry = p.headYaw; rz = p.headRoll; }
             case ARM_R -> { rx = p.armRPitch; rz = p.armRRoll; }
             case ARM_L -> { rx = p.armLPitch; rz = p.armLRoll; }
@@ -167,7 +176,7 @@ public final class Model3D {
             default -> { }
         }
         rotZ(v, rz); rotY(v, ry); rotX(v, rx);
-        if (point) { v[0] += pt.px(); v[1] += pt.py(); v[2] += pt.pz(); v[1] -= p.leanPivot; }
+        if (point) { v[0] += ppx; v[1] += ppy; v[2] += ppz; v[1] -= p.leanPivot; }
         rotZ(v, p.lean);
         if (point) v[1] += p.leanPivot;
         rotY(v, p.yaw);
@@ -257,5 +266,87 @@ public final class Model3D {
         for (Face f : out) {
             canvas.face(f.tex, f.ox, f.oy, f.ux, f.uy, f.vx, f.vy, f.u, f.v, f.w, f.h, f.shade, f.tint);
         }
+    }
+
+    // ---------------------------------------------------------------- solid-colour boxes (cosmetics)
+
+    /**
+     * A plain coloured box that is part of a limb. (px,py,pz) is the pivot the limb turns around,
+     * (cx,cy,cz) the box centre relative to that pivot. Colour is ARGB.
+     */
+    public record Box(int limb, float px, float py, float pz, float cx, float cy, float cz,
+                      float w, float h, float d, int color) {}
+
+    public interface SolidCanvas {
+        /** Fill the parallelogram at (ox,oy) spanned by (ux,uy) and (vx,vy). */
+        void quad(float ox, float oy, float ux, float uy, float vx, float vy, int argb);
+    }
+
+    private static final class SolidFace {
+        float depth, ox, oy, ux, uy, vx, vy;
+        int color;
+    }
+
+    private static int shadeColor(int argb, float k, int tint) {
+        int a = (argb >>> 24) & 255;
+        int r = Math.min(255, (int) (((argb >> 16) & 255) * k));
+        int g = Math.min(255, (int) (((argb >> 8) & 255) * k));
+        int b = Math.min(255, (int) ((argb & 255) * k));
+        int ta = (tint >>> 24) & 255;
+        if (ta != 0) {
+            float f = ta / 255f;
+            r = (int) (r + (((tint >> 16) & 255) - r) * f);
+            g = (int) (g + (((tint >> 8) & 255) - g) * f);
+            b = (int) (b + ((tint & 255) - b) * f);
+        }
+        return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+
+    /** Draw coloured boxes with the same pose / camera / lighting as {@link #draw}. */
+    public static void drawBoxes(SolidCanvas canvas, List<Box> boxes, Pose p, float cx, float cy, float S) {
+        List<SolidFace> out = new ArrayList<>();
+        float[] pos = new float[3], dirU = new float[3], dirV = new float[3], nrm = new float[3];
+
+        float lx = -0.30f, ly = -0.70f, lz = 0.65f;
+        float ll = (float) Math.sqrt(lx * lx + ly * ly + lz * lz);
+        lx /= ll; ly /= ll; lz /= ll;
+
+        for (Box b : boxes) {
+            float hx = b.w() / 2, hy = b.h() / 2, hz = b.d() / 2;
+            for (int f = 0; f < 6; f++) {
+                int[] fd = FACES[f];
+                nrm[0] = fd[0]; nrm[1] = fd[1]; nrm[2] = fd[2];
+                xform(nrm, b.limb(), b.px(), b.py(), b.pz(), p, false);
+                if (nrm[2] <= 0.0001f) continue;
+
+                float fw, fh;
+                switch (f) {
+                    case 0, 1 -> { fw = b.w(); fh = b.h(); }
+                    case 2, 3 -> { fw = b.d(); fh = b.h(); }
+                    default -> { fw = b.w(); fh = b.d(); }
+                }
+
+                pos[0] = b.cx() + fd[3] * hx; pos[1] = b.cy() + fd[4] * hy; pos[2] = b.cz() + fd[5] * hz;
+                xform(pos, b.limb(), b.px(), b.py(), b.pz(), p, true);
+                dirU[0] = fd[6]; dirU[1] = fd[7]; dirU[2] = fd[8];
+                dirV[0] = fd[9]; dirV[1] = fd[10]; dirV[2] = fd[11];
+                xform(dirU, b.limb(), b.px(), b.py(), b.pz(), p, false);
+                xform(dirV, b.limb(), b.px(), b.py(), b.pz(), p, false);
+
+                float su = fw * p.scale, sv = fh * p.scale;
+                SolidFace sf = new SolidFace();
+                sf.ox = cx + pos[0] * S;
+                sf.oy = cy + pos[1] * S;
+                sf.ux = dirU[0] * su * S; sf.uy = dirU[1] * su * S;
+                sf.vx = dirV[0] * sv * S; sf.vy = dirV[1] * sv * S;
+                sf.depth = pos[2] + dirU[2] * su / 2 + dirV[2] * sv / 2;
+                float dot = Math.max(0f, nrm[0] * lx + nrm[1] * ly + nrm[2] * lz);
+                sf.color = shadeColor(b.color(), 0.58f + 0.46f * dot, p.tint);
+                out.add(sf);
+            }
+        }
+
+        out.sort((a, c) -> Float.compare(a.depth, c.depth)); // far to near
+        for (SolidFace f : out) canvas.quad(f.ox, f.oy, f.ux, f.uy, f.vx, f.vy, f.color);
     }
 }

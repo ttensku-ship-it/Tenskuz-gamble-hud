@@ -2,13 +2,17 @@
   "schemaVersion": 1,
   "id": "tenskugamblehud",
   "version": "${version}",
-  "name": "Tensku Gamble Hud",
-  "description": "Gamble HUD with profit tracker, pay confirm, themes, big-payment animation, a dancing skin and menu music.",
-  "authors": ["tensku"],
+  "name": "Tensku Client",
+  "description": "Tensku Client: gamble HUD with profit tracker, pay confirm, auctions, themes, big-payment animations, a dancing skin, menu music and cosmetics (capes, pets and 3D costumes).",
+  "authors": [
+    "tensku"
+  ],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
-    "client": ["com.tensku.gamblehud.TenskuGambleHud"]
+    "client": [
+      "com.tensku.gamblehud.TenskuGambleHud"
+    ]
   },
   "depends": {
     "fabricloader": ">=0.19.5",

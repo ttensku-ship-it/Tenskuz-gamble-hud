@@ -13,7 +13,7 @@ import java.util.List;
 
 public class HubScreen extends Screen {
     private static final int W = 400, H = 270;
-    private static final String[] TABS = {"Overview", "Auction", "Profit", "Pay Confirm", "Alerts", "Themes", "Background", "HUD", "Leaderboard", "P&L", "Text"};
+    private static final String[] TABS = {"Overview", "Auction", "Profit", "Pay Confirm", "Alerts", "Themes", "Background", "HUD", "Leaderboard", "P&L", "Text", "Cosmetics"};
 
     private record Hit(int x, int y, int w, int h, Runnable action) {}
 
@@ -25,6 +25,7 @@ public class HubScreen extends Screen {
     private SoundInstance music;
     private boolean boardWinners = true;
     private int themePage = 0;
+    private int cosCat = 0; // 0 capes, 1 pets, 2 costumes
 
     // open / close animation
     private static final long OPEN_MS = 280, CLOSE_MS = 180;
@@ -205,11 +206,11 @@ public class HubScreen extends Screen {
         // tabs
         for (int i = 0; i < TABS.length; i++) {
             final int idx = i;
-            int ty = py + 36 + i * 20;
+            int ty = py + 36 + i * 18;
             boolean sel = i == tab;
-            g.fill(px + 12, ty, px + 112, ty + 18, sel ? th.accent() : 0xCC151824);
-            g.text(font, TABS[i], px + 20, ty + 5, sel ? 0xFF10121A : 0xFFE8E8E8, !sel);
-            hits.add(new Hit(px + 12, ty, 100, 18, () -> { tab = idx; updateBoxes(); status = ""; }));
+            g.fill(px + 12, ty, px + 112, ty + 16, sel ? th.accent() : 0xCC151824);
+            g.text(font, TABS[i], px + 20, ty + 4, sel ? 0xFF10121A : 0xFFE8E8E8, !sel);
+            hits.add(new Hit(px + 12, ty, 100, 16, () -> { tab = idx; updateBoxes(); status = ""; }));
         }
 
         int y0 = py + 36;
@@ -477,13 +478,45 @@ public class HubScreen extends Screen {
                 if (texts.size() > 7) g.text(font, "+" + (texts.size() - 7) + " more in the editor", px + 124, y0 + 66 + 7 * 15, 0xFF9AA0B5, true);
                 g.text(font, "Click a row to show / hide it.", px + 124, y0 + 176, 0xFF6A708A, true);
             }
+            case 11 -> {
+                label(g, th, "COSMETICS", y0 - 12);
+                String[] cats = {"Capes", "Pets", "Costumes"};
+                for (int i = 0; i < 3; i++) {
+                    final int ci = i;
+                    int bx = px + 124 + i * 57;
+                    boolean selC = cosCat == i;
+                    g.fill(bx, y0, bx + 54, y0 + 16, selC ? th.accent() : 0xCC151824);
+                    g.fill(bx, y0, bx + 54, y0 + 1, selC ? 0xFFFFFFFF : th.accent());
+                    g.text(font, cats[i], bx + (54 - font.width(cats[i])) / 2, y0 + 5, selC ? 0xFF10121A : 0xFFE8E8E8, !selC);
+                    hits.add(new Hit(bx, y0, 54, 16, () -> cosCat = ci));
+                }
+                final String[] names = cosCat == 0 ? Cosmetics.CAPES : cosCat == 1 ? Cosmetics.PETS : Cosmetics.COSTUMES;
+                final int cat = cosCat;
+                int current = cat == 0 ? c.cape : cat == 1 ? c.pet : c.costume;
+                for (int i = 0; i < names.length; i++) {
+                    final int idx = i;
+                    int ry = y0 + 22 + i * 17;
+                    boolean selI = current == i;
+                    g.fill(px + 124, ry, px + 292, ry + 15, selI ? th.accent() : 0xCC151824);
+                    boolean swatch = cat == 0 && i > 0;
+                    if (swatch) g.fill(px + 128, ry + 3, px + 138, ry + 12, Cosmetics.CAPE_SWATCH[i]);
+                    g.text(font, names[i], px + (swatch ? 144 : 130), ry + 4, selI ? 0xFF10121A : 0xFFE8E8E8, !selI);
+                    hits.add(new Hit(px + 124, ry, 168, 15, () -> {
+                        if (cat == 0) c.cape = idx; else if (cat == 1) c.pet = idx; else c.costume = idx;
+                        Config.save();
+                        status = idx == 0 ? "Removed" : "Equipped " + names[idx];
+                    }));
+                }
+                toggle(g, th, "Show on menu skin", c.cosmeticsOnMenu, y0 + 22 + 9 * 17 + 4, () -> { c.cosmeticsOnMenu = !c.cosmeticsOnMenu; Config.save(); });
+                CosmeticsGui.drawPreview(g, minecraft, px + 296, y0, 92, 196, font);
+            }
             default -> { }
         }
 
         if (!status.isEmpty()) g.text(font, status, px + 124, py + H - 28, 0xFF9DFFB0, true);
 
-        // right side stat card (the P&L tab uses that space for the graph)
-        if (tab != 9) {
+        // right side stat card (the P&L and Cosmetics tabs use that space)
+        if (tab != 9 && tab != 11) {
         int sx = px + 300, sw = 88;
         g.fill(sx, py + 36, sx + sw, py + 122, 0xCC10121A);
         g.text(font, "BALANCE", sx + 6, py + 42, 0xFFFFFFFF, true);

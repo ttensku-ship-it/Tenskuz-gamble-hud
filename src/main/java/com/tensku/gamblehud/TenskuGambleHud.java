@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 
 public class TenskuGambleHud implements ClientModInitializer {
     public static final String MOD_ID = "tenskugamblehud";
-    public static final String TITLE = "TENSKU GAMBLE HUD";
+    public static final String TITLE = "TENSKU CLIENT";
     public static final String CREDIT = "by tensku";
 
     // "$" may be followed by a space on some servers: "paid you $ 5M"

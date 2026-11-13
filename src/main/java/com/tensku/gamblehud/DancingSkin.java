@@ -88,10 +88,16 @@ public final class DancingSkin {
             Model3D.draw(canvas, MOB_TEX[SCENE.mob], false, skel, SCENE.zombie, playerX, hipY, S);
             canvas.texH = 64;
         }
-        outline(canvas, skin, false, SCENE.player, playerX, hipY, S);
-        Model3D.draw(canvas, skin, true, SCENE.player, playerX, hipY, S);
+        boolean costume = false;
+        if (Config.I.cosmeticsOnMenu) {
+            CosmeticsGui.drawMenuPet(g, playerX, hipY, S, t, areaL);
+            costume = CosmeticsGui.drawPlayer(g, canvas, skin, SCENE.player, playerX, hipY, S, t);
+        } else {
+            outline(canvas, skin, false, SCENE.player, playerX, hipY, S);
+            Model3D.draw(canvas, skin, true, SCENE.player, playerX, hipY, S);
+        }
 
-        if (withZombie && SCENE.weaponOut) {
+        if (withZombie && SCENE.weaponOut && !costume) {
             weapon(g, SCENE.player, SCENE.hammer, playerX, hipY, S, t, accent);
         }
 
