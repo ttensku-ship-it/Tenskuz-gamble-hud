@@ -39,6 +39,7 @@ public class TenskuGambleHud implements ClientModInitializer {
     public void onInitializeClient() {
         Config.load();
         Config.I.snapshot(); // baseline point for this session's P&L graph
+        Spotify.init();      // reconnects to Spotify by itself if you logged in before
 
         // Keybind (default: Right Shift) - change it in Options > Controls > Key Binds.
         // 26.3 uses SDL scancodes and the 3-argument KeyMapping constructor (no InputConstants.Type).
@@ -64,6 +65,7 @@ public class TenskuGambleHud implements ClientModInitializer {
             ProfitCard.render(graphics, mc);
             AuctionManager.render(graphics, mc, w, h);
             TextOverlay.render(graphics, mc);
+            SpotifyCard.render(graphics, mc);
             Cutscene.render(graphics, mc, w, h);
             Fireworks.render(graphics, w, h);
             PaymentAnimation.render(graphics, w, h);

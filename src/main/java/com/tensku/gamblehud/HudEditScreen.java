@@ -8,7 +8,7 @@ import net.minecraft.network.chat.Component;
 
 /** Move and resize the profit card, auction timer and floating auction item. Click a card to pick it up, click again to drop it. */
 public class HudEditScreen extends Screen {
-    private int grabbed = -1; // -1 none, 0 profit, 1 auction, 2 floating item
+    private int grabbed = -1; // -1 none, 0 profit, 1 auction, 2 floating item, 3 spotify
     private int offX, offY;
 
     public HudEditScreen() {
@@ -31,6 +31,8 @@ public class HudEditScreen extends Screen {
         int y3 = height - 76;
         btn("Item -", x0, y3, 74, () -> { Config.I.floatScale = Hud.clamp(Config.I.floatScale - 0.1f); Config.save(); });
         btn("Item +", x0 + 78, y3, 74, () -> { Config.I.floatScale = Hud.clamp(Config.I.floatScale + 0.1f); Config.save(); });
+        btn("Spotify -", x0 + 156, y3, 74, () -> { Config.I.spotifyScale = Hud.clamp(Config.I.spotifyScale - 0.1f); Config.save(); });
+        btn("Spotify +", x0 + 234, y3, 74, () -> { Config.I.spotifyScale = Hud.clamp(Config.I.spotifyScale + 0.1f); Config.save(); });
         btn("Reset", cx - 104, y2, 100, () -> { grabbed = -1; Config.I.resetHud(); });
         btn("Done", cx + 4, y2, 100, this::onClose);
     }
@@ -53,7 +55,8 @@ public class HudEditScreen extends Screen {
 
         // a card that is picked up follows the mouse
         if (grabbed >= 0) {
-            int[] r = grabbed == 0 ? Hud.profitRect(width, height) : grabbed == 1 ? Hud.auctionRect(width, height) : Hud.floatRect(width, height);
+            int[] r = grabbed == 0 ? Hud.profitRect(width, height) : grabbed == 1 ? Hud.auctionRect(width, height)
+                : grabbed == 3 ? Hud.spotifyRect(width, height) : Hud.floatRect(width, height);
             int nx = Math.max(0, Math.min(width - r[2], mouseX - offX));
             int ny = Math.max(0, Math.min(height - r[3], mouseY - offY));
             if (grabbed == 0) {
@@ -62,6 +65,9 @@ public class HudEditScreen extends Screen {
             } else if (grabbed == 1) {
                 Config.I.auctionX = Hud.frac(nx, r[2], width);
                 Config.I.auctionY = Hud.frac(ny, r[3], height);
+            } else if (grabbed == 3) {
+                Config.I.spotifyX = Hud.frac(nx, r[2], width);
+                Config.I.spotifyY = Hud.frac(ny, r[3], height);
             } else {
                 Config.I.floatX = Hud.frac(nx, r[2], width);
                 Config.I.floatY = Hud.frac(ny, r[3], height);
@@ -92,11 +98,16 @@ public class HudEditScreen extends Screen {
         g.pose().popMatrix();
         frame(g, fr, "Auction item (sample)", grabbed == 2);
 
+        int[] sr = Hud.spotifyRect(width, height);
+        SpotifyCard.drawSample(g, minecraft, sr[0], sr[1], Hud.clamp(Config.I.spotifyScale));
+        frame(g, sr, "Spotify (sample)", grabbed == 3);
+
         String help = grabbed >= 0 ? "Click to drop it here" : "Click a card to pick it up, click again to drop it";
         g.text(font, help, (width - font.width(help)) / 2, 8, 0xFFFFFFFF, true);
         String sizes = "Profit size " + Math.round(Hud.clamp(Config.I.profitScale) * 100) + "%      Auction size "
             + Math.round(Hud.clamp(Config.I.auctionScale) * 100) + "%      Item size "
-            + Math.round(Hud.clamp(Config.I.floatScale) * 100) + "%";
+            + Math.round(Hud.clamp(Config.I.floatScale) * 100) + "%      Spotify size "
+            + Math.round(Hud.clamp(Config.I.spotifyScale) * 100) + "%";
         g.text(font, sizes, (width - font.width(sizes)) / 2, height - 90, 0xFFB9BDCB, true);
 
         super.extractRenderState(g, mouseX, mouseY, partialTick);
@@ -115,6 +126,14 @@ public class HudEditScreen extends Screen {
         int[] pr = Hud.profitRect(width, height);
         int[] ar = Hud.auctionRect(width, height);
         int[] fr = Hud.floatRect(width, height);
+        int[] spr = Hud.spotifyRect(width, height);
+        if (inside(spr, mx, my)) {
+            Ui.click();
+            grabbed = 3;
+            offX = mx - spr[0];
+            offY = my - spr[1];
+            return true;
+        }
         if (inside(fr, mx, my) && !inside(pr, mx, my) && !inside(ar, mx, my)) {
             Ui.click();
             grabbed = 2;

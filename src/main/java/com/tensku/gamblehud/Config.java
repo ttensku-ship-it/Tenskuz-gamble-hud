@@ -33,11 +33,6 @@ public class Config {
     public float profitX = -1, profitY = -1, auctionX = -1, auctionY = -1;
     public float profitScale = 1f, auctionScale = 1f;
 
-    // custom background (PNG in config/tenskugamblehud/)
-    public boolean bgEnabled = false;
-    public String bgImage = "";
-    public int bgDim = 35;
-
     // HUD font: "Minecraft" or the name of a font installed on the PC; hudFontAll = list every installed font in the picker
     public String hudFont = "Minecraft";
     public boolean hudFontAll = false;
@@ -65,6 +60,14 @@ public class Config {
     public java.util.List<double[]> history = new java.util.ArrayList<>();
     public int pnlRange = 0;            // 0 session, 1 24h, 2 7d, 3 30d, 4 all
     public boolean profitGraph = false; // small graph under the HUD profit card
+
+    // Spotify: your own app's Client ID (no secret needed), the login token, and the now-playing card
+    public String spotifyClientId = "";
+    public String spotifyRefresh = "";
+    public boolean spotifyCard = true;
+    public boolean spotifyLyrics = true;
+    public int spotifyOffsetMs = 0;     // nudge the lyrics earlier (-) or later (+)
+    public float spotifyX = -1, spotifyY = -1, spotifyScale = 1f;
 
     // custom on-screen text
     public boolean textEnabled = true;
@@ -154,8 +157,8 @@ public class Config {
     }
 
     public void resetHud() {
-        profitX = profitY = auctionX = auctionY = floatX = floatY = -1;
-        profitScale = auctionScale = floatScale = 1f;
+        profitX = profitY = auctionX = auctionY = floatX = floatY = spotifyX = spotifyY = -1;
+        profitScale = auctionScale = floatScale = spotifyScale = 1f;
         save();
     }
 

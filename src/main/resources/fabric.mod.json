@@ -3,7 +3,7 @@
   "id": "tenskugamblehud",
   "version": "${version}",
   "name": "Tensku Client",
-  "description": "Tensku Client: gamble HUD with profit tracker, pay confirm, auctions, themes, big-payment animations, a dancing skin, menu music and cosmetics (capes, pets and 3D costumes).",
+  "description": "Tensku Client: gamble HUD with profit tracker, pay confirm, auctions, themes, big-payment animations, a dancing skin, menu music, cosmetics (capes, pets and 3D costumes) and a Spotify now-playing card with synced lyrics.",
   "authors": [
     "tensku"
   ],

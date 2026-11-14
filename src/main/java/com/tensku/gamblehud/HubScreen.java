@@ -13,14 +13,14 @@ import java.util.List;
 
 public class HubScreen extends Screen {
     private static final int W = 400, H = 270;
-    private static final String[] TABS = {"Overview", "Auction", "Profit", "Pay Confirm", "Alerts", "Themes", "Background", "HUD", "Leaderboard", "P&L", "Text", "Cosmetics"};
+    private static final String[] TABS = {"Overview", "Auction", "Profit", "Pay Confirm", "Alerts", "Themes", "HUD", "Leaderboard", "P&L", "Text", "Cosmetics", "Spotify"};
 
     private record Hit(int x, int y, int w, int h, Runnable action) {}
 
     private final List<Hit> hits = new ArrayList<>();
     private int tab = 0;
     private int px, py;
-    private EditBox payBox, alertBox, goalBox, winnerBox, resultBox, bgBox;
+    private EditBox payBox, alertBox, goalBox, winnerBox, resultBox, spotifyBox;
     private String status = "";
     private SoundInstance music;
     private boolean boardWinners = true;
@@ -48,8 +48,11 @@ public class HubScreen extends Screen {
         alertBox = box(cx, y0 + 70, Money.format(Config.I.alertThreshold).replace("$", ""));
         winnerBox = box(cx, y0 + 78, String.valueOf(Config.I.winnerBannerSeconds));
         resultBox = box(cx, y0 + 116, String.valueOf(Config.I.resultDisplaySeconds));
-        bgBox = box(cx, y0 + 42, Config.I.bgImage);
-        bgBox.setMaxLength(60);
+        spotifyBox = new EditBox(font, cx, y0 + 10, 264, 18, Component.literal("client id"));
+        spotifyBox.setMaxLength(64);
+        spotifyBox.setValue(Config.I.spotifyClientId == null ? "" : Config.I.spotifyClientId);
+        spotifyBox.setResponder(v -> Config.I.spotifyClientId = v.trim());
+        addRenderableWidget(spotifyBox);
         updateBoxes();
         if (Config.I.menuMusic) startMusic();
     }
@@ -141,7 +144,7 @@ public class HubScreen extends Screen {
         alertBox.setVisible(tab == 4);
         winnerBox.setVisible(tab == 1);
         resultBox.setVisible(tab == 1);
-        bgBox.setVisible(tab == 6);
+        spotifyBox.setVisible(tab == 11);
     }
 
     // ---------- drawing helpers ----------
@@ -206,11 +209,11 @@ public class HubScreen extends Screen {
         // tabs
         for (int i = 0; i < TABS.length; i++) {
             final int idx = i;
-            int ty = py + 36 + i * 18;
+            int ty = py + 34 + i * 16;
             boolean sel = i == tab;
-            g.fill(px + 12, ty, px + 112, ty + 16, sel ? th.accent() : 0xCC151824);
-            g.text(font, TABS[i], px + 20, ty + 4, sel ? 0xFF10121A : 0xFFE8E8E8, !sel);
-            hits.add(new Hit(px + 12, ty, 100, 16, () -> { tab = idx; updateBoxes(); status = ""; }));
+            g.fill(px + 12, ty, px + 112, ty + 14, sel ? th.accent() : 0xCC151824);
+            g.text(font, TABS[i], px + 20, ty + 3, sel ? 0xFF10121A : 0xFFE8E8E8, !sel);
+            hits.add(new Hit(px + 12, ty, 100, 14, () -> { tab = idx; updateBoxes(); status = ""; }));
         }
 
         int y0 = py + 36;
@@ -312,29 +315,6 @@ public class HubScreen extends Screen {
                 g.text(font, pg, px + 208 - font.width(pg) / 2, y0 + 172, 0xFFE8E8E8, true);
             }
             case 6 -> {
-                label(g, th, "BACKGROUND", y0 - 12);
-                toggle(g, th, "Custom Background", c.bgEnabled, y0, () -> { c.bgEnabled = !c.bgEnabled; Config.save(); });
-                label(g, th, "PNG FILE NAME", y0 + 30);
-                button(g, th, "Load", px + 124 + 116, y0 + 42, 52, 18, () -> {
-                    String name = bgBox.getValue().trim();
-                    if (name.isEmpty()) { status = "Type a PNG file name first"; return; }
-                    CustomImage.reload(name);
-                    c.bgImage = name;
-                    c.bgEnabled = true;
-                    Config.save();
-                    status = CustomImage.get(name) != null ? "Loaded " + name : "Failed: " + CustomImage.lastError;
-                });
-                g.text(font, "Darken: " + c.bgDim + "%", px + 124 + 30, y0 + 72, 0xFFE8E8E8, true);
-                button(g, th, "-", px + 124, y0 + 66, 24, 20, () -> { c.bgDim = Math.max(0, c.bgDim - 5); Config.save(); });
-                button(g, th, "+", px + 124 + 144, y0 + 66, 24, 20, () -> { c.bgDim = Math.min(90, c.bgDim + 5); Config.save(); });
-                button(g, th, "Clear image", px + 124, y0 + 92, 168, 20, () -> {
-                    c.bgImage = ""; c.bgEnabled = false; bgBox.setValue(""); Config.save(); status = "Background cleared";
-                });
-                g.text(font, "Put PNG files in:", px + 124, y0 + 120, 0xFFB9BDCB, true);
-                g.text(font, ".minecraft/config/tenskugamblehud/", px + 124, y0 + 132, 0xFFB9BDCB, true);
-                g.text(font, "Used on cards and menus.", px + 124, y0 + 144, 0xFFB9BDCB, true);
-            }
-            case 7 -> {
                 label(g, th, "HUD", y0 - 12);
                 toggle(g, th, "Profit Tracker", c.profitCard, y0, () -> { c.profitCard = !c.profitCard; Config.save(); });
                 toggle(g, th, "Auction", c.auctionEnabled, y0 + 22, () -> { c.auctionEnabled = !c.auctionEnabled; Config.save(); });
@@ -350,7 +330,7 @@ public class HubScreen extends Screen {
                 HudFont.text(g, font, "Aa Bb 123 $5,000,000", px + 130, y0 + 176, 0xFFFFFFFF, true);
                 toggle(g, th, "List all installed fonts", c.hudFontAll, y0 + 194, () -> { c.hudFontAll = !c.hudFontAll; Config.save(); });
             }
-            case 8 -> {
+            case 7 -> {
                 label(g, th, "LEADERBOARD", y0 - 12);
                 button(g, th, "Top Winners", px + 124, y0, 82, 18, () -> boardWinners = true);
                 button(g, th, "Top Losers", px + 210, y0, 82, 18, () -> boardWinners = false);
@@ -397,7 +377,7 @@ public class HubScreen extends Screen {
                 }
                 button(g, th, "Reset Leaderboard", px + 124, y0 + 178, 168, 16, () -> { c.ledger.clear(); Config.save(); status = "Leaderboard reset"; });
             }
-            case 9 -> {
+            case 8 -> {
                 label(g, th, "PROFIT & LOSS", y0 - 12);
                 int fx = px + 124, fw = 264;
                 // range selector
@@ -453,7 +433,7 @@ public class HubScreen extends Screen {
                     status = "History cleared";
                 });
             }
-            case 10 -> {
+            case 9 -> {
                 label(g, th, "SCREEN TEXT", y0 - 12);
                 toggle(g, th, "Show custom text", c.textEnabled, y0, () -> { c.textEnabled = !c.textEnabled; Config.save(); });
                 button(g, th, "Open Text Editor", px + 124, y0 + 26, 168, 20, () -> minecraft.gui.setScreen(new TextEditScreen()));
@@ -478,7 +458,7 @@ public class HubScreen extends Screen {
                 if (texts.size() > 7) g.text(font, "+" + (texts.size() - 7) + " more in the editor", px + 124, y0 + 66 + 7 * 15, 0xFF9AA0B5, true);
                 g.text(font, "Click a row to show / hide it.", px + 124, y0 + 176, 0xFF6A708A, true);
             }
-            case 11 -> {
+            case 10 -> {
                 label(g, th, "COSMETICS", y0 - 12);
                 String[] cats = {"Capes", "Pets", "Costumes"};
                 for (int i = 0; i < 3; i++) {
@@ -510,13 +490,67 @@ public class HubScreen extends Screen {
                 toggle(g, th, "Show on menu skin", c.cosmeticsOnMenu, y0 + 22 + 9 * 17 + 4, () -> { c.cosmeticsOnMenu = !c.cosmeticsOnMenu; Config.save(); });
                 CosmeticsGui.drawPreview(g, minecraft, px + 296, y0, 92, 196, font);
             }
+            case 11 -> {
+                label(g, th, "SPOTIFY", y0 - 12);
+                g.text(font, "CLIENT ID", px + 124, y0, 0xFFB9BDCB, true);
+
+                Spotify.Status st = Spotify.status;
+                Spotify.Now np = Spotify.now;
+                int scol = switch (st) {
+                    case CONNECTED -> 0xFF7CFF9B;
+                    case CONNECTING -> 0xFFFFD93D;
+                    case ERROR -> 0xFFFF6B6B;
+                    default -> 0xFF9AA0B5;
+                };
+                String sline = switch (st) {
+                    case CONNECTED -> "Connected" + (np != null ? " - " + np.title() : " - play a song in Spotify");
+                    case DISCONNECTED -> Spotify.message.isEmpty() ? "Not connected" : Spotify.message;
+                    default -> Spotify.message;
+                };
+                var rows = SpotifyCard.wrap(sline, 264, font::width, 2);
+                for (int i = 0; i < rows.size(); i++) g.text(font, rows.get(i), px + 124, y0 + 34 + i * 11, scol, true);
+
+                boolean linked = Spotify.connected();
+                button(g, th, linked ? "Disconnect" : "Connect Spotify", px + 124, y0 + 58, 128, 20, () -> {
+                    if (linked) {
+                        Spotify.disconnect("");
+                    } else {
+                        Config.I.spotifyClientId = spotifyBox.getValue().trim();
+                        Config.save();
+                        Spotify.connect();
+                    }
+                });
+                button(g, th, "Open Spotify dashboard", px + 256, y0 + 58, 132, 20, () -> {
+                    try { Spotify.openBrowser("https://developer.spotify.com/dashboard"); } catch (Exception ignored) { }
+                });
+
+                toggle(g, th, "Show on screen", c.spotifyCard, y0 + 84, () -> { c.spotifyCard = !c.spotifyCard; Config.save(); });
+                toggle(g, th, "Show lyrics", c.spotifyLyrics, y0 + 108, () -> {
+                    c.spotifyLyrics = !c.spotifyLyrics;
+                    Config.save();
+                    if (c.spotifyLyrics) Spotify.reloadLyrics();
+                });
+
+                g.text(font, "Lyrics sync", px + 124, y0 + 137, 0xFFE8E8E8, true);
+                button(g, th, "-", px + 196, y0 + 132, 24, 20, () -> { c.spotifyOffsetMs = Math.max(-5000, c.spotifyOffsetMs - 250); Config.save(); });
+                String off = (c.spotifyOffsetMs >= 0 ? "+" : "-") + String.format("%.2fs", Math.abs(c.spotifyOffsetMs) / 1000.0);
+                g.fill(px + 222, y0 + 132, px + 282, y0 + 152, 0xCC10121A);
+                g.text(font, off, px + 252 - font.width(off) / 2, y0 + 138, 0xFFFFFFFF, true);
+                button(g, th, "+", px + 284, y0 + 132, 24, 20, () -> { c.spotifyOffsetMs = Math.min(5000, c.spotifyOffsetMs + 250); Config.save(); });
+
+                int ty2 = y0 + 160;
+                g.text(font, "1. Make an app at developer.spotify.com/dashboard", px + 124, ty2, 0xFF9AA0B5, true);
+                g.text(font, "2. Add this Redirect URI to it:", px + 124, ty2 + 11, 0xFF9AA0B5, true);
+                g.text(font, Spotify.redirectUri(), px + 132, ty2 + 22, 0xFFFFFFFF, true);
+                g.text(font, "3. Paste its Client ID above, press Connect", px + 124, ty2 + 33, 0xFF9AA0B5, true);
+            }
             default -> { }
         }
 
         if (!status.isEmpty()) g.text(font, status, px + 124, py + H - 28, 0xFF9DFFB0, true);
 
         // right side stat card (the P&L and Cosmetics tabs use that space)
-        if (tab != 9 && tab != 11) {
+        if (tab != 8 && tab != 10 && tab != 11) {
         int sx = px + 300, sw = 88;
         g.fill(sx, py + 36, sx + sw, py + 122, 0xCC10121A);
         g.text(font, "BALANCE", sx + 6, py + 42, 0xFFFFFFFF, true);

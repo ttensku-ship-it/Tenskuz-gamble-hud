@@ -9,16 +9,8 @@ import net.minecraft.sounds.SoundEvents;
 public final class Ui {
     private Ui() {}
 
-    /** Card/panel background: the custom image if enabled and loaded, else the theme gradient. True if an image was drawn. */
+    /** Card/panel background: the theme gradient. (Always returns false - kept so the callers did not need changing.) */
     public static boolean backdrop(GuiGraphicsExtractor g, Theme th, int x1, int y1, int x2, int y2) {
-        if (Config.I.bgEnabled) {
-            CustomImage.Tex t = CustomImage.get(Config.I.bgImage);
-            if (t != null) {
-                CustomImage.cover(g, t, x1, y1, x2 - x1, y2 - y1);
-                g.fill(x1, y1, x2, y2, Theme.alpha(0x000000, Config.I.bgDim / 100f));
-                return true;
-            }
-        }
         g.fillGradient(x1, y1, x2, y2, th.top(), th.bottom());
         return false;
     }

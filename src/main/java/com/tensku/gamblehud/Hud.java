@@ -35,6 +35,19 @@ public final class Hud {
         return rect(Config.I.auctionX, Config.I.auctionY, sw - w - 6, 6, w, h, sw, sh);
     }
 
+    public static final int SPOTIFY_W = 196;
+
+    public static int spotifyH() {
+        return Config.I.spotifyLyrics ? 98 : 46;
+    }
+
+    /** The Spotify card sits in the bottom right corner unless you moved it. */
+    public static int[] spotifyRect(int sw, int sh) {
+        float s = clamp(Config.I.spotifyScale);
+        int w = Math.round(SPOTIFY_W * s), h = Math.round(spotifyH() * s);
+        return rect(Config.I.spotifyX, Config.I.spotifyY, sw - w - 6, sh - h - 6, w, h, sw, sh);
+    }
+
     public static int[] floatRect(int sw, int sh) {
         float s = clamp(Config.I.floatScale);
         int w = Math.round(FLOAT_W * s), h = Math.round(FLOAT_H * s);
